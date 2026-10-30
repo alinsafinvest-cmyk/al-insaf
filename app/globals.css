@@ -1,26 +1,531 @@
+/* বাংলা: এই stylesheet-এ পুরো ওয়েবসাইটের রং, থিম, ফন্ট ও পুনর্ব্যবহারযোগ্য দৃশ্যমান নিয়ম নির্ধারিত হয়। */
+
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --app-background: #ffffff;
+  --app-watermark-opacity: 0.035;
+  --neon-light: #00a879;
+  --neon-cyan: #0891b2;
+  --neon-page: #f5fbf9;
+  --neon-surface: #ffffff;
+  --neon-border: color-mix(in srgb, var(--alinsaf-primary) 15%, #dbe6e2);
+  --neon-glow: color-mix(in srgb, var(--alinsaf-primary) 15%, transparent);
+  --brand-green: var(--alinsaf-primary);
+  --brand-green-dark: var(--color-emerald-900);
+  --brand-gold: #fbbf24;
+  --alinsaf-primary: #047857;
+  --color-emerald-50: color-mix(in srgb, var(--alinsaf-primary) 5%, white);
+  --color-emerald-100: color-mix(in srgb, var(--alinsaf-primary) 10%, white);
+  --color-emerald-200: color-mix(in srgb, var(--alinsaf-primary) 25%, white);
+  --color-emerald-300: color-mix(in srgb, var(--alinsaf-primary) 40%, white);
+  --color-emerald-400: color-mix(in srgb, var(--alinsaf-primary) 65%, white);
+  --color-emerald-500: color-mix(in srgb, var(--alinsaf-primary) 85%, white);
+  --color-emerald-600: var(--alinsaf-primary);
+  --color-emerald-700: color-mix(in srgb, var(--alinsaf-primary) 85%, black);
+  --color-emerald-800: color-mix(in srgb, var(--alinsaf-primary) 70%, black);
+  --color-emerald-900: color-mix(in srgb, var(--alinsaf-primary) 55%, black);
+  --color-emerald-950: color-mix(in srgb, var(--alinsaf-primary) 40%, black);
+  --color-green-50: var(--color-emerald-50);
+  --color-green-100: var(--color-emerald-100);
+  --color-green-200: var(--color-emerald-200);
+  --color-green-300: var(--color-emerald-300);
+  --color-green-400: var(--color-emerald-400);
+  --color-green-500: var(--color-emerald-500);
+  --color-green-600: var(--color-emerald-600);
+  --color-green-700: var(--color-emerald-700);
+  --color-green-800: var(--color-emerald-800);
+  --color-green-900: var(--color-emerald-900);
+  --color-green-950: var(--color-emerald-950);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html.dark {
+  color-scheme: dark;
+  --app-background: #030712;
+  --app-watermark-opacity: 0.045;
+  --neon-light: #4dffc3;
+  --neon-cyan: #67e8f9;
+  --neon-page: #070c17;
+  --neon-surface: #0c1422;
+  --neon-border: color-mix(in srgb, #4dffc3 24%, #17263a);
+  --neon-glow: color-mix(in srgb, #4dffc3 13%, transparent);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 90px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  font-family: Arial, "Nirmala UI", "Noto Sans Bengali", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 0.75rem;
+  left: 0.75rem;
+  transform: translateY(-160%);
+  border-radius: 0.75rem;
+  background: var(--alinsaf-primary);
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.app-background {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--app-background);
+}
+
+.neon-ui {
+  color: #14231f;
+  background-color: var(--neon-page);
+  background-image:
+    radial-gradient(ellipse at 8% 3%, color-mix(in srgb, var(--neon-light) 9%, transparent), transparent 36rem),
+    radial-gradient(ellipse at 95% 25%, color-mix(in srgb, var(--neon-cyan) 6%, transparent), transparent 34rem);
+  transition:
+    background-color 240ms ease,
+    color 240ms ease;
+}
+
+.dark .neon-ui {
+  color: #e5fff5;
+  background-image:
+    radial-gradient(ellipse at 8% 3%, color-mix(in srgb, var(--neon-light) 10%, transparent), transparent 38rem),
+    radial-gradient(ellipse at 95% 25%, color-mix(in srgb, var(--neon-cyan) 8%, transparent), transparent 36rem),
+    linear-gradient(145deg, #070c17, #090f1d 52%, #070b15);
+}
+
+.neon-ui :is(section, article)[class*="border"] {
+  border-color: var(--neon-border);
+  box-shadow:
+    0 12px 34px -28px var(--neon-light),
+    0 1px 0 color-mix(in srgb, var(--neon-light) 7%, transparent);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.neon-ui :is(section, article)[class*="border"]:hover {
+  border-color: color-mix(in srgb, var(--neon-light) 42%, var(--neon-border));
+  box-shadow:
+    0 18px 42px -28px var(--neon-light),
+    0 0 0 1px color-mix(in srgb, var(--neon-light) 10%, transparent);
+}
+
+.neon-ui :is(section, article)[class*="rounded-2xl"][class*="bg-white"],
+.neon-ui :is(section, article)[class*="rounded-3xl"][class*="bg-white"] {
+  background-color: var(--neon-surface);
+}
+
+.dark .neon-ui :is(section, article)[class*="rounded-2xl"][class*="bg-white"],
+.dark .neon-ui :is(section, article)[class*="rounded-3xl"][class*="bg-white"] {
+  background-color: color-mix(in srgb, var(--neon-surface) 90%, var(--neon-light));
+}
+
+.neon-ui :is(button, a)[class*="bg-emerald-"]:not([class*="text-emerald-"]),
+.neon-ui :is(button, a)[class*="from-emerald-"] {
+  box-shadow:
+    0 8px 22px -12px color-mix(in srgb, var(--neon-light) 70%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.16);
+}
+
+.neon-ui :is(button, a)[class*="bg-emerald-"]:not([class*="text-emerald-"]):hover,
+.neon-ui :is(button, a)[class*="from-emerald-"]:hover {
+  box-shadow:
+    0 10px 26px -10px color-mix(in srgb, var(--neon-light) 78%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--neon-light) 12%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+.neon-ui input:not([type="checkbox"]):not([type="radio"]),
+.neon-ui select,
+.neon-ui textarea {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.neon-ui input:focus,
+.neon-ui select:focus,
+.neon-ui textarea:focus {
+  border-color: var(--neon-light);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--neon-light) 15%, transparent);
+}
+
+.neon-ui > header,
+.neon-ui header.sticky,
+.neon-ui header.fixed {
+  border-color: var(--neon-border);
+  box-shadow:
+    0 8px 28px -24px var(--neon-light),
+    0 1px 0 color-mix(in srgb, var(--neon-light) 9%, transparent);
+}
+
+.neon-ui.auth-page > div > section {
+  border-color: var(--neon-border);
+  box-shadow:
+    0 30px 90px -35px color-mix(in srgb, var(--neon-light) 35%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--neon-light) 8%, transparent);
+}
+
+.dark .neon-ui.auth-page > div > section {
+  background-color: #0a1220;
+}
+
+.dark .neon-ui.auth-page input,
+.dark .neon-ui.auth-page input::placeholder {
+  color: #e5fff5;
+}
+
+.dark .neon-ui.auth-page input::placeholder {
+  color: #8aa99e;
+}
+
+.dark .neon-ui.auth-page label {
+  color: #d4f5e8;
+}
+
+.dark .neon-ui.auth-page p {
+  color: #a8c8bc;
+}
+
+.dark .neon-ui.auth-page h1,
+.dark .neon-ui.auth-page .text-slate-900 {
+  color: #edfff7;
+}
+
+.dark .neon-ui.auth-page .bg-slate-50\/80 {
+  background-color: #101c2b;
+}
+
+.dark .neon-ui.auth-page .bg-white\/90,
+.dark .neon-ui.auth-page .bg-white\/75 {
+  border-color: var(--neon-border);
+  background-color: #101a28;
+}
+
+.dark .neon-ui.auth-page .text-slate-600,
+.dark .neon-ui.auth-page .text-slate-500 {
+  color: #a7c7bc;
+}
+
+.dark .neon-ui.auth-page .border-slate-200 {
+  border-color: #26394a;
+}
+
+.dashboard-shell aside {
+  border-color: var(--neon-border);
+  box-shadow: 8px 0 30px -28px var(--neon-light);
+}
+
+.dark .dashboard-shell aside {
+  background-color: #09111f;
+  box-shadow:
+    8px 0 34px -25px color-mix(in srgb, var(--neon-light) 35%, transparent),
+    inset -1px 0 0 color-mix(in srgb, var(--neon-light) 8%, transparent);
+}
+
+.dashboard-shell > div > header {
+  border-color: var(--neon-border);
+}
+
+.dark .dashboard-shell > div > header {
+  background-color: rgb(7 12 23 / 0.92);
+  box-shadow: 0 8px 30px -25px var(--neon-light);
+}
+
+.dark .dashboard-shell .bg-white {
+  background-color: #0c1422;
+}
+
+.dark .dashboard-shell .bg-gray-50 {
+  background-color: #101b2a;
+}
+
+.dark .dashboard-shell .bg-slate-900 {
+  background-color: #0c1422;
+}
+
+.dark .dashboard-shell .border-slate-200,
+.dark .dashboard-shell .border-gray-200,
+.dark .dashboard-shell .border-gray-100 {
+  border-color: #203347;
+}
+
+.dark .dashboard-shell .text-slate-900,
+.dark .dashboard-shell .text-gray-900 {
+  color: #edfff7;
+}
+
+.dark .dashboard-shell .text-slate-500,
+.dark .dashboard-shell .text-slate-400,
+.dark .dashboard-shell .text-gray-500,
+.dark .dashboard-shell .text-gray-600 {
+  color: #a3bcb5;
+}
+
+.app-background::before {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  background-image:
+    radial-gradient(
+      circle at center,
+      transparent 0 31%,
+      color-mix(in srgb, var(--alinsaf-primary) 22%, transparent) 31.15% 31.3%,
+      transparent 31.45% 39%,
+      color-mix(in srgb, var(--alinsaf-primary) 14%, transparent) 39.15% 39.3%,
+      transparent 39.45%
+    ),
+    radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--alinsaf-primary) 10%, transparent),
+      transparent 68%
+    ),
+    url("/WhatsApp%20Image%202026-10-01%20at%208.09.06%20PM.jpeg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size:
+    min(52vw, 590px) min(52vw, 590px),
+    min(62vw, 700px) min(62vw, 700px),
+    min(38vw, 430px) auto;
+  content: "";
+  opacity: var(--app-watermark-opacity);
+  pointer-events: none;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--alinsaf-primary) 55%, transparent);
+  outline-offset: 2px;
+}
+
+a {
+  text-decoration: none;
+}
+
+.hero-pattern {
+  background-color: var(--brand-green);
+  background-image:
+    radial-gradient(
+      circle at center,
+      rgba(255, 255, 255, 0.065) 1.5px,
+      transparent 1.7px
+    );
+  background-size: 28px 28px;
+}
+
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-emerald-100);
+  border-radius: 9999px;
+  background: var(--color-emerald-50);
+  padding: 8px 16px;
+  color: var(--color-emerald-800);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.site-nav-drawer {
+  animation: site-nav-drawer-in 240ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes site-nav-drawer-in {
+  from {
+    opacity: 0.7;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+::selection {
+  background: var(--color-emerald-200);
+  color: var(--color-emerald-950);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbar */
+
+::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 20px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+.dark .bg-white {
+    background-color: #111827;
+}
+
+.dark .bg-gray-50 {
+    background-color: #111827;
+}
+
+.dark .bg-gray-100 {
+    background-color: #1f2937;
+}
+
+.dark .bg-gray-200 {
+    background-color: #374151;
+}
+
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700 {
+    color: #f3f4f6;
+}
+
+.dark .text-gray-600,
+.dark .text-gray-500 {
+    color: #9ca3af;
+}
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 {
+    border-color: #374151;
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page .bg-slate-950 {
+    background-color: #f8fafc;
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page [class*="bg-slate-950/"] {
+    background-color: rgb(248 250 252 / 0.8);
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page .bg-slate-900 {
+    background-color: #fff;
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page [class*="bg-slate-900/"] {
+    background-color: rgb(255 255 255 / 0.85);
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page .bg-slate-800 {
+    background-color: #e2e8f0;
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page [class*="bg-slate-800/"] {
+    background-color: rgb(226 232 240 / 0.85);
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page .border-slate-800,
+html[data-theme-mode="light"] .dashboard-finance-page .border-slate-700 {
+    border-color: #cbd5e1;
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page .text-white {
+    color: #0f172a;
+}
+
+html[data-theme-mode="light"] .dashboard-shell [class~="text-slate-300"],
+html[data-theme-mode="light"] .dashboard-shell [class~="text-slate-400"],
+html[data-theme-mode="light"] .dashboard-shell [class~="text-gray-400"] {
+    color: #475569;
+}
+
+html[data-theme-mode="light"] .dashboard-shell [class~="text-slate-500"],
+html[data-theme-mode="light"] .dashboard-shell [class~="text-gray-500"] {
+    color: #475569;
+}
+
+html[data-theme-mode="light"] .dashboard-shell [class~="text-slate-600"],
+html[data-theme-mode="light"] .dashboard-shell [class~="text-gray-600"] {
+    color: #334155;
+}
+
+html[data-theme-mode="light"] .dashboard-finance-page button.text-white,
+html[data-theme-mode="light"] .dashboard-finance-page a.text-white,
+html[data-theme-mode="light"] .dashboard-finance-page [class*="bg-orange-"] .text-white,
+html[data-theme-mode="light"] .dashboard-finance-page [class*="bg-emerald-"] .text-white,
+html[data-theme-mode="light"] .dashboard-finance-page [class*="bg-red-"] .text-white,
+html[data-theme-mode="light"] .dashboard-finance-page [class*="bg-blue-"] .text-white {
+    color: #fff;
 }
