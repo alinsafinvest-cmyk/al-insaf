@@ -6,6 +6,7 @@ import "./globals.css";
 import { LanguageProvider } from "../context/LanguageContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import SkipToContent from "@/app/components/SkipToContent";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 
 const hindSiliguri = Hind_Siliguri({
@@ -51,6 +52,7 @@ export default function RootLayout({
             {children}
           </LanguageProvider>
         </ThemeProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
