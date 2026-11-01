@@ -7,6 +7,7 @@ import {
     useMemo,
     useState,
 } from "react";
+import Image from "next/image";
 import { SITE_LOGO } from "@/lib/site-branding";
 import { openOfficialReceipt } from "@/lib/transaction-receipt";
 import { useLanguage } from "@/context/LanguageContext";
@@ -64,6 +65,13 @@ interface Summary {
     approved: SummaryItem;
     rejected: SummaryItem;
     total: SummaryItem;
+}
+
+interface WithdrawalApiResponse {
+    success?: boolean;
+    message?: string;
+    withdrawals?: Withdrawal[];
+    summary?: Summary;
 }
 
 type TabType =
@@ -146,6 +154,10 @@ function formatDateTime(
             minute: "2-digit",
         }
     );
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error ? error.message : fallback;
 }
 
 /* =========================================================
@@ -267,10 +279,6 @@ export default function WithdrawalsPage() {
         useCallback(
             async () => {
                 try {
-                    setLoading(true);
-
-                    setError("");
-
                     const response =
                         await fetch(
                             "/api/withdrawals",
@@ -286,13 +294,10 @@ export default function WithdrawalsPage() {
                     const text =
                         await response.text();
 
-                    let data: any;
+                    let data: WithdrawalApiResponse;
 
                     try {
-                        data =
-                            JSON.parse(
-                                text
-                            );
+                        data = JSON.parse(text) as WithdrawalApiResponse;
                     } catch {
                         throw new Error(
                             `Server JSON response দেয়নি. Status: ${response.status}`
@@ -350,15 +355,14 @@ export default function WithdrawalsPage() {
                             }
                     );
                 } catch (
-                    err: any
+                    err
                 ) {
                     console.error(
                         err
                     );
 
                     setError(
-                        err?.message ||
-                            "Withdrawal data load failed"
+                        getErrorMessage(err, "Withdrawal data load failed")
                     );
                 } finally {
                     setLoading(
@@ -370,7 +374,11 @@ export default function WithdrawalsPage() {
         );
 
     useEffect(() => {
-        loadWithdrawals();
+        const timer = setTimeout(() => {
+            void loadWithdrawals();
+        }, 0);
+
+        return () => clearTimeout(timer);
     }, [loadWithdrawals]);
 
     /* =====================================================
@@ -572,15 +580,14 @@ export default function WithdrawalsPage() {
 
             await loadWithdrawals();
         } catch (
-            err: any
+            err
         ) {
             console.error(
                 err
             );
 
             setError(
-                err?.message ||
-                    "Withdrawal create failed"
+                getErrorMessage(err, "Withdrawal create failed")
             );
         } finally {
             setActionLoading(
@@ -671,15 +678,14 @@ export default function WithdrawalsPage() {
                 }`
             );
         } catch (
-            err: any
+            err
         ) {
             console.error(
                 err
             );
 
             setError(
-                err?.message ||
-                    "Approve failed"
+                getErrorMessage(err, "Approve failed")
             );
         } finally {
             setActionLoading(
@@ -795,15 +801,14 @@ export default function WithdrawalsPage() {
                 "Withdrawal Reject করা হয়েছে"
             );
         } catch (
-            err: any
+            err
         ) {
             console.error(
                 err
             );
 
             setError(
-                err?.message ||
-                    "Reject failed"
+                getErrorMessage(err, "Reject failed")
             );
         } finally {
             setActionLoading(
@@ -902,9 +907,12 @@ export default function WithdrawalsPage() {
 
                         <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white p-1">
 
-                            <img
+                            <Image
                                 src={LOGO}
                                 alt="Al-Insaf"
+                                width={48}
+                                height={48}
+                                unoptimized
                                 className="h-full w-full object-contain"
                             />
 

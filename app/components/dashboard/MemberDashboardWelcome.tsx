@@ -3,7 +3,13 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
-import { ArrowDownToLine, ArrowUpFromLine, Sparkles } from "lucide-react";
+import {
+    ArrowDownToLine,
+    ArrowUpFromLine,
+    HandCoins,
+    ReceiptText,
+    Sparkles,
+} from "lucide-react";
 
 // বাংলা: সদস্যকে স্বাগত ও account-এর সংক্ষিপ্ত পরিচিতি দেখায়।
 export default function MemberDashboardWelcome() {
@@ -25,7 +31,7 @@ export default function MemberDashboardWelcome() {
                         {bn ? "আপনার সঞ্চয়, লেনদেন ও অ্যাকাউন্টের তথ্য এক জায়গা থেকে দেখুন।" : "View your savings, transactions and account information in one place."}
                     </p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[340px]">
+                <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[380px]">
                     <Link
                         href="/member/dashboard/deposits"
                         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-800 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
@@ -39,6 +45,20 @@ export default function MemberDashboardWelcome() {
                     >
                         <ArrowUpFromLine size={18} />
                         {bn ? "উত্তোলন" : "Withdraw"}
+                    </Link>
+                    <Link
+                        href="/member/dashboard/loans"
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-700/25 bg-white/80 px-5 py-3 text-sm font-bold text-emerald-800 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700/50 hover:bg-emerald-50 hover:shadow-md dark:border-emerald-400/25 dark:bg-slate-900/70 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                    >
+                        <HandCoins size={18} />
+                        {bn ? "ঋণের হিসাব" : "Loans"}
+                    </Link>
+                    <Link
+                        href="/member/dashboard/transactions"
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-700/25 bg-white/80 px-5 py-3 text-sm font-bold text-emerald-800 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700/50 hover:bg-emerald-50 hover:shadow-md dark:border-emerald-400/25 dark:bg-slate-900/70 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                    >
+                        <ReceiptText size={18} />
+                        {bn ? "লেনদেন" : "Transactions"}
                     </Link>
                 </div>
             </div>

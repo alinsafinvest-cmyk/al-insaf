@@ -5,7 +5,9 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import { requireRole } from "@/lib/require-auth";
 import { Member } from "@/lib/sheetsModels";
+import MemberArchive from "@/models/MemberArchive";
 import User from "@/models/user";
+import type { SheetRecord } from "@/lib/sheet-record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,19 +16,19 @@ export const dynamic = "force-dynamic";
    HELPERS
 ========================================================= */
 
-function getMemberData(record: any) {
+function getMemberData(record: SheetRecord): SheetRecord {
     return {
         ...record,
         ...(record?.data || {}),
     };
 }
 
-function clean(value: any) {
+function clean(value: unknown) {
     if (value === undefined || value === null) return "";
     return String(value).trim();
 }
 
-function numberValue(value: any) {
+function numberValue(value: unknown) {
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
 }
@@ -57,7 +59,7 @@ export async function GET(request: Request) {
             .sort({ createdAt: -1 })
             .lean();
 
-        let members = records.map((record: any) => {
+        let members = records.map((record: SheetRecord) => {
             const data = getMemberData(record);
 
             return {
@@ -186,7 +188,7 @@ export async function GET(request: Request) {
         });
 
         if (search) {
-            members = members.filter((member: any) => {
+            members = members.filter((member: SheetRecord) => {
                 const searchable = [
                     member.memberId,
                     member.name,
@@ -203,7 +205,7 @@ export async function GET(request: Request) {
             });
         }
 
-        const active = members.filter((member: any) => {
+        const active = members.filter((member: SheetRecord) => {
             const status = clean(member.status).toLowerCase();
 
             return (
@@ -295,6 +297,22 @@ export async function POST(request: Request) {
             );
         }
 
+        const archivedMember = await MemberArchive.exists({
+            memberId,
+            expiresAt: { $gt: new Date() },
+        });
+
+        if (archivedMember) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "এই Member ID archive-এ আছে; মেয়াদ শেষ হওয়া বা restore হওয়া পর্যন্ত ব্যবহার করা যাবে না",
+                },
+                { status: 409 }
+            );
+        }
+
         /* Duplicate User */
 
         if (email) {
@@ -302,7 +320,12 @@ export async function POST(request: Request) {
                 email,
             }).lean();
 
-            if (existingEmail) {
+            const archivedEmail = await MemberArchive.exists({
+                expiresAt: { $gt: new Date() },
+                "snapshot.account.email": email,
+            });
+
+            if (existingEmail || archivedEmail) {
                 return NextResponse.json(
                     {
                         success: false,
@@ -370,7 +393,7 @@ export async function POST(request: Request) {
                 clean(body.nomineePhotoFileId),
         };
 
-        const member = await Member.create({
+        await Member.create({
             sourceSheet: "Members",
             recordId: memberId,
             data: memberData,
@@ -407,14 +430,14 @@ export async function POST(request: Request) {
             },
             { status: 201 }
         );
-    } catch (error: any) {
+    } catch (error) {
         console.error("CREATE MEMBER ERROR:", error);
 
         return NextResponse.json(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "নতুন সদস্য তৈরি করা যায়নি",
             },
             { status: 500 }
@@ -673,14 +696,14 @@ export async function PUT(request: Request) {
             message:
                 "সদস্যের তথ্য সফলভাবে আপডেট হয়েছে",
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("UPDATE MEMBER ERROR:", error);
 
         return NextResponse.json(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Member update করা যায়নি",
             },
             { status: 500 }

@@ -2,6 +2,7 @@
 // বাংলা: এই shared UI component-এ LoansManagement অংশের display ও interaction পরিচালিত হয়।
 
 import {
+    useCallback,
     useEffect,
     useMemo,
     useState,
@@ -142,10 +143,10 @@ function money(value: number) {
     ).format(value || 0);
 }
 
-function dateText(value: any) {
+function dateText(value: unknown) {
     if (!value) return "-";
 
-    const date = new Date(value);
+    const date = new Date(String(value));
 
     if (Number.isNaN(date.getTime())) {
         return String(value);
@@ -188,7 +189,7 @@ function statusClass(
 }
 
 function escapeHtml(
-    value: any,
+    value: unknown,
 ) {
     return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -269,10 +270,8 @@ export default function LoansManagement() {
     const [form, setForm] =
         useState(emptyForm);
 
-    const loadLoans = async () => {
+    const loadLoans = useCallback(async () => {
         try {
-            setLoading(true);
-
             const response =
                 await fetch(
                     "/api/loans",
@@ -295,22 +294,25 @@ export default function LoansManagement() {
                 result.loans || [],
             );
 
-            setSummary(
-                result.summary || summary,
-            );
-        } catch (error: any) {
+            setSummary((current) => result.summary || current);
+        } catch (error) {
             alert(
-                error?.message ||
-                    "Loan data load failed",
+                error instanceof Error
+                    ? error.message
+                    : "Loan data load failed",
             );
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        loadLoans();
-    }, []);
+        const timer = setTimeout(() => {
+            void loadLoans();
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [loadLoans]);
 
     const filteredLoans =
         useMemo(() => {
@@ -427,10 +429,11 @@ export default function LoansManagement() {
             setShowNew(false);
 
             await loadLoans();
-        } catch (error: any) {
+        } catch (error) {
             alert(
-                error?.message ||
-                    "Loan create failed",
+                error instanceof Error
+                    ? error.message
+                    : "Loan create failed",
             );
         } finally {
             setSaving(false);
@@ -489,10 +492,11 @@ export default function LoansManagement() {
             );
 
             await loadLoans();
-        } catch (error: any) {
+        } catch (error) {
             alert(
-                error?.message ||
-                    "Approval failed",
+                error instanceof Error
+                    ? error.message
+                    : "Approval failed",
             );
         } finally {
             setSaving(false);
@@ -561,10 +565,11 @@ export default function LoansManagement() {
                 setRejectionReason("");
 
                 await loadLoans();
-            } catch (error: any) {
+            } catch (error) {
                 alert(
-                    error?.message ||
-                        "Reject failed",
+                    error instanceof Error
+                        ? error.message
+                        : "Reject failed",
                 );
             } finally {
                 setSaving(false);
@@ -2434,7 +2439,7 @@ function Info({
     value,
 }: {
     label: string;
-    value: any;
+    value: unknown;
 }) {
     const { language } = useLanguage();
 
@@ -2446,7 +2451,7 @@ function Info({
             </p>
 
             <p className="mt-1 break-words font-bold text-slate-800">
-                {value || "-"}
+                {value ? String(value) : "-"}
             </p>
 
         </div>

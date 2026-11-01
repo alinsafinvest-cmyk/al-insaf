@@ -110,7 +110,7 @@ export default function MemberTransactionsPage() {
         } finally {
             setLoading(false);
         }
-    }, [language]);
+    }, []);
 
     useEffect(() => {
         const timer = setTimeout(() => {

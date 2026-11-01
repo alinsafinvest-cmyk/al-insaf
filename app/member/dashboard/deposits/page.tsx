@@ -180,20 +180,24 @@ export default function MyDepositsPage() {
   }, [loadDeposits]);
 
   useEffect(() => {
-    const result = new URLSearchParams(window.location.search).get("payment");
-    if (result === "success") {
-      setSuccess(
-        language === "bn"
-          ? "পেমেন্ট যাচাই হয়েছে এবং জমা অনুমোদিত হয়েছে।"
-          : "Payment verified and deposit approved.",
-      );
-    } else if (result === "failed") {
-      setError(
-        language === "bn"
-          ? "পেমেন্ট সম্পন্ন হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
-          : "Payment was not completed. Please try again.",
-      );
-    }
+    const timer = setTimeout(() => {
+      const result = new URLSearchParams(window.location.search).get("payment");
+      if (result === "success") {
+        setSuccess(
+          language === "bn"
+            ? "পেমেন্ট যাচাই হয়েছে এবং জমা অনুমোদিত হয়েছে।"
+            : "Payment verified and deposit approved.",
+        );
+      } else if (result === "failed") {
+        setError(
+          language === "bn"
+            ? "পেমেন্ট সম্পন্ন হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
+            : "Payment was not completed. Please try again.",
+        );
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [language]);
 
   const statusInfo = {

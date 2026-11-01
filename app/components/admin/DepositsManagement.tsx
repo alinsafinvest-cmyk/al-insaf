@@ -74,16 +74,8 @@ export default function DepositsManagement() {
     // LOAD DATA
     // =========================================================
 
-    async function loadData(showRefresh = false) {
+    async function loadData() {
         try {
-            if (showRefresh) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
-
-            setError("");
-
             const response = await fetch("/api/deposits", {
                 method: "GET",
                 cache: "no-store",
@@ -97,8 +89,12 @@ export default function DepositsManagement() {
 
             setMembers(data.members || []);
             setDeposits(data.deposits || []);
-        } catch (err: any) {
-            setError(err.message || "ডাটা লোড করা যায়নি");
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "ডাটা লোড করা যায়নি"
+            );
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -106,7 +102,11 @@ export default function DepositsManagement() {
     }
 
     useEffect(() => {
-        loadData();
+        const timer = setTimeout(() => {
+            void loadData();
+        }, 0);
+
+        return () => clearTimeout(timer);
     }, []);
 
     // =========================================================
@@ -226,9 +226,13 @@ export default function DepositsManagement() {
                 date: new Date().toISOString().split("T")[0],
             });
 
-            await loadData(true);
-        } catch (err: any) {
-            setError(err.message || "Deposit save করা যায়নি");
+            await loadData();
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Deposit save করা যায়নি"
+            );
         } finally {
             setSaving(false);
         }
@@ -324,7 +328,11 @@ export default function DepositsManagement() {
 
                     <button
                         type="button"
-                        onClick={() => loadData(true)}
+                        onClick={() => {
+                            setRefreshing(true);
+                            setError("");
+                            void loadData();
+                        }}
                         disabled={refreshing}
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-[#07101e] px-5 py-3 text-sm font-medium text-slate-200 transition hover:border-emerald-500/50 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -679,11 +687,17 @@ export default function DepositsManagement() {
 
                                 <select
                                     value={statusFilter}
-                                    onChange={(e) =>
-                                        setStatusFilter(
-                                            e.target.value as any
-                                        )
-                                    }
+                                    onChange={(e) => {
+                                        const status = e.target.value;
+                                        if (
+                                            status === "all" ||
+                                            status === "pending" ||
+                                            status === "approved" ||
+                                            status === "rejected"
+                                        ) {
+                                            setStatusFilter(status);
+                                        }
+                                    }}
                                     className="rounded-xl border border-slate-700 bg-[#1d293b] px-4 py-3 text-sm text-white outline-none focus:border-emerald-500"
                                 >
                                     <option value="all">

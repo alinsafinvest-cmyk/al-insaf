@@ -5,6 +5,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // বাংলা: GET অনুরোধে প্রয়োজনীয় তথ্য পড়ে অনুমোদিত ফলাফল ফেরত দেয়।
-export async function GET(request: Request) {
+export async function GET() {
     return getDashboard();
 }

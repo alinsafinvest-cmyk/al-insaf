@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { requireRole } from "@/lib/require-auth";
 import { SystemConfig } from "@/lib/sheetsModels";
+import type { SheetRecord } from "@/lib/sheet-record";
 import {
     DEFAULT_THEME_SETTINGS,
     normalizeThemeSettings,
@@ -57,10 +58,10 @@ const DEFAULT_SETTINGS = {
     updatedBy: "",
 };
 
-function getSettingsData(record: any) {
+function getSettingsData(record: SheetRecord | null) {
     return {
         ...DEFAULT_SETTINGS,
-        ...(record?.data || {}),
+        ...(record?.data ?? {}),
     };
 }
 
@@ -91,14 +92,14 @@ export async function GET() {
             success: true,
             settings: getSettingsData(record),
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Settings GET Error:", error);
 
         return NextResponse.json(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Settings load failed",
             },
             { status: 500 },
@@ -263,14 +264,14 @@ export async function PUT(request: Request) {
             message: "Settings saved successfully",
             settings: getSettingsData(saved),
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Settings PUT Error:", error);
 
         return NextResponse.json(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Settings save failed",
             },
             { status: 500 },

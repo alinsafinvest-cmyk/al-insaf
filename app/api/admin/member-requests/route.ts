@@ -4,7 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { requireRole } from "@/lib/require-auth";
 import { Member, MemberRequest } from "@/lib/sheetsModels";
+import MemberArchive from "@/models/MemberArchive";
 import User from "@/models/user";
+import type { SheetRecord } from "@/lib/sheet-record";
 
 import bcrypt from "bcryptjs";
 
@@ -15,17 +17,6 @@ export const dynamic = "force-dynamic";
    HELPERS
 ========================= */
 
-function getData(doc: any) {
-    const root = doc?.toObject
-        ? doc.toObject()
-        : { ...doc };
-
-    return {
-        ...(root.data || {}),
-        ...root,
-    };
-}
-
 async function generateMemberId() {
     const docs = await Member.find({
         sourceSheet: "Members",
@@ -35,7 +26,7 @@ async function generateMemberId() {
 
     let max = 0;
 
-    for (const doc of docs as any[]) {
+    for (const doc of docs as SheetRecord[]) {
         const raw =
             doc.MemberID ||
             doc.data?.MemberID ||
@@ -76,7 +67,7 @@ export async function GET(
                 "status"
             ) || "all";
 
-        const filter: any = {
+        const filter: Record<string, unknown> = {
             sourceSheet: "Member Requests",
         };
 
@@ -97,7 +88,7 @@ export async function GET(
             success: true,
 
             requests: requests.map(
-                (item: any) => ({
+                (item: SheetRecord) => ({
                     requestId:
                         item.requestId ||
                         item.recordId,
@@ -130,7 +121,7 @@ export async function GET(
             ),
         });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "GET MEMBER REQUEST ERROR:",
             error
@@ -140,7 +131,7 @@ export async function GET(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Request পাওয়া যায়নি",
             },
             { status: 500 }
@@ -268,7 +259,7 @@ export async function POST(
                 created.requestId,
         });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "CREATE MEMBER REQUEST ERROR:",
             error
@@ -278,7 +269,7 @@ export async function POST(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Request জমা দেওয়া যায়নি",
             },
             { status: 500 }
@@ -369,24 +360,37 @@ export async function PUT(
                 );
             }
 
-            memberRequest.status =
-                "rejected";
+            const rejected = await MemberRequest.findOneAndUpdate(
+                {
+                    _id: memberRequest._id,
+                    sourceSheet: "Member Requests",
+                    status: currentStatus,
+                },
+                {
+                    $set: {
+                        status: "rejected",
+                        rejectedAt: new Date(),
+                        rejectedBy: auth.user?.userId || "admin",
+                        rejectionReason: body.reason || "",
+                    },
+                },
+                { new: true }
+            );
 
-            memberRequest.rejectedAt =
-                new Date();
-
-            memberRequest.rejectedBy =
-                auth.user?.userId || "admin";
-
-            memberRequest.rejectionReason =
-                body.reason || "";
-
-            await memberRequest.save();
+            if (!rejected) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "আবেদনটি ইতিমধ্যে অন্য admin পরিবর্তন করেছেন; তালিকা রিফ্রেশ করুন",
+                    },
+                    { status: 409 }
+                );
+            }
 
             return NextResponse.json({
                 success: true,
                 message:
-                    "Request Failed Requests-এ পাঠানো হয়েছে",
+                    "আবেদনটি প্রত্যাখ্যান করা হয়েছে এবং Failed Requests-এ সরানো হয়েছে",
             });
         }
 
@@ -440,7 +444,15 @@ export async function PUT(
                     ],
                 });
 
-            if (existingUser) {
+            const archivedAccount = await MemberArchive.exists({
+                expiresAt: { $gt: new Date() },
+                $or: [
+                    { memberId },
+                    { "snapshot.account.email": loginEmail },
+                ],
+            });
+
+            if (existingUser || archivedAccount) {
                 return NextResponse.json(
                     {
                         success: false,
@@ -545,66 +557,82 @@ export async function PUT(
              * Member তৈরি
              */
 
-            await Member.create({
-                sourceSheet:
-                    "Members",
+            let createdMember = false;
+            let createdUser = false;
+            try {
+                await Member.create({
+                    sourceSheet: "Members",
+                    recordId: memberId,
+                    data: memberData,
+                    ...memberData,
+                    syncedAt: new Date(),
+                });
+                createdMember = true;
 
-                recordId:
+                await User.create({
+                    name,
+                    email: loginEmail,
+                    password: hashedPassword,
+                    role: "member",
                     memberId,
+                    phone: data.whatsapp || data.mobile || "",
+                    isActive: true,
+                });
+                createdUser = true;
 
-                data:
-                    memberData,
+                const approved = await MemberRequest.findOneAndUpdate(
+                    {
+                        _id: memberRequest._id,
+                        sourceSheet: "Member Requests",
+                        status: currentStatus,
+                    },
+                    {
+                        $set: {
+                            status: "approved",
+                            approvedAt: new Date(),
+                            approvedBy: auth.user?.userId || "admin",
+                            approvedMemberId: memberId,
+                        },
+                    },
+                    { new: true }
+                );
 
-                ...memberData,
+                if (!approved) {
+                    throw new Error(
+                        "আবেদনটি ইতিমধ্যে অন্য admin পরিবর্তন করেছেন"
+                    );
+                }
+            } catch (error) {
+                const rollbackErrors: unknown[] = [];
 
-                syncedAt:
-                    new Date(),
-            });
+                if (createdUser) {
+                    try {
+                        await User.deleteOne({ memberId, email: loginEmail });
+                    } catch (rollbackError) {
+                        rollbackErrors.push(rollbackError);
+                    }
+                }
 
-            /*
-             * Login তৈরি
-             */
+                if (createdMember) {
+                    try {
+                        await Member.deleteOne({
+                            sourceSheet: "Members",
+                            recordId: memberId,
+                        });
+                    } catch (rollbackError) {
+                        rollbackErrors.push(rollbackError);
+                    }
+                }
 
-            await User.create({
-                name,
+                for (const rollbackError of rollbackErrors) {
+                    console.error(
+                        "MEMBER REQUEST APPROVAL ROLLBACK ERROR:",
+                        rollbackError
+                    );
+                }
 
-                email:
-                    loginEmail,
-
-                password:
-                    hashedPassword,
-
-                role:
-                    "member",
-
-                memberId,
-
-                phone:
-                    data.whatsapp ||
-                    data.mobile ||
-                    "",
-
-                isActive: true,
-            });
-
-            /*
-             * Request status update
-             */
-
-            memberRequest.status =
-                "approved";
-
-            memberRequest.approvedAt =
-                new Date();
-
-            memberRequest.approvedBy =
-                auth.user?.userId ||
-                "admin";
-
-            memberRequest.approvedMemberId =
-                memberId;
-
-            await memberRequest.save();
+                throw error;
+            }
 
             return NextResponse.json({
                 success: true,
@@ -627,7 +655,7 @@ export async function PUT(
             { status: 400 }
         );
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "MEMBER REQUEST ACTION ERROR:",
             error
@@ -637,10 +665,21 @@ export async function PUT(
             {
                 success: false,
                 message:
-                    error?.message ||
-                    "Request update করা যায়নি",
+                    error instanceof Error &&
+                    (error.message.includes("duplicate key") ||
+                        ("code" in error && error.code === 11000))
+                        ? "এই email বা Member ID দিয়ে account আগে থেকেই আছে"
+                        : (error instanceof Error ? error.message : "") ||
+                          "Request update করা যায়নি",
             },
-            { status: 500 }
+            {
+                status:
+                    error instanceof Error &&
+                    (error.message.includes("duplicate key") ||
+                        ("code" in error && error.code === 11000))
+                        ? 409
+                        : 500,
+            }
         );
     }
 }

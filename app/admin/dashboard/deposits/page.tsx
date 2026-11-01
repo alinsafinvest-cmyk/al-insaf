@@ -7,6 +7,7 @@ import {
     useMemo,
     useState,
 } from "react";
+import Image from "next/image";
 import { SITE_LOGO } from "@/lib/site-branding";
 import { openOfficialReceipt } from "@/lib/transaction-receipt";
 import { useLanguage } from "@/context/LanguageContext";
@@ -63,6 +64,13 @@ interface Summary {
     approved: SummaryItem;
     rejected: SummaryItem;
     total: SummaryItem;
+}
+
+interface DepositApiResponse {
+    success?: boolean;
+    message?: string;
+    deposits?: Deposit[];
+    summary?: Summary;
 }
 
 type TabType =
@@ -122,16 +130,8 @@ function formatDateTime(value: string) {
     });
 }
 
-function statusText(status: DepositStatus) {
-    if (status === "approved") {
-        return "Approved";
-    }
-
-    if (status === "rejected") {
-        return "Rejected";
-    }
-
-    return "Pending";
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error ? error.message : fallback;
 }
 
 /* =========================================================
@@ -220,9 +220,6 @@ export default function DepositsPage() {
     const loadDeposits = useCallback(
         async () => {
             try {
-                setLoading(true);
-                setError("");
-
                 const response =
                     await fetch(
                         "/api/deposits",
@@ -235,11 +232,10 @@ export default function DepositsPage() {
                 const text =
                     await response.text();
 
-                let data: any = null;
+                let data: DepositApiResponse;
 
                 try {
-                    data =
-                        JSON.parse(text);
+                    data = JSON.parse(text) as DepositApiResponse;
                 } catch {
                     throw new Error(
                         `Server JSON response দেয়নি. Status: ${response.status}`
@@ -290,15 +286,14 @@ export default function DepositsPage() {
                         },
                     }
                 );
-            } catch (err: any) {
+            } catch (err) {
                 console.error(
                     "Deposit load error:",
                     err
                 );
 
                 setError(
-                    err?.message ||
-                        "Deposit data load failed"
+                    getErrorMessage(err, "Deposit data load failed")
                 );
             } finally {
                 setLoading(false);
@@ -308,7 +303,11 @@ export default function DepositsPage() {
     );
 
     useEffect(() => {
-        loadDeposits();
+        const timer = setTimeout(() => {
+            void loadDeposits();
+        }, 0);
+
+        return () => clearTimeout(timer);
     }, [loadDeposits]);
 
     /* =====================================================
@@ -481,12 +480,11 @@ export default function DepositsPage() {
             });
 
             await loadDeposits();
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
 
             setError(
-                err?.message ||
-                    "Deposit create failed"
+                getErrorMessage(err, "Deposit create failed")
             );
         } finally {
             setActionLoading(false);
@@ -570,12 +568,11 @@ export default function DepositsPage() {
                     data.receiptId || ""
                 }`
             );
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
 
             setError(
-                err?.message ||
-                    "Approve failed"
+                getErrorMessage(err, "Approve failed")
             );
         } finally {
             setActionLoading(false);
@@ -680,12 +677,11 @@ export default function DepositsPage() {
             alert(
                 "Deposit Reject করা হয়েছে"
             );
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
 
             setError(
-                err?.message ||
-                    "Reject failed"
+                getErrorMessage(err, "Reject failed")
             );
         } finally {
             setActionLoading(false);
@@ -789,9 +785,12 @@ export default function DepositsPage() {
 
                             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white p-1">
 
-                                <img
+                                <Image
                                     src={LOGO}
                                     alt="Al-Insaf"
+                                    width={48}
+                                    height={48}
+                                    unoptimized
                                     className="h-full w-full object-contain"
                                 />
 

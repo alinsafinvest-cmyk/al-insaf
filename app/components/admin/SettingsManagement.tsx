@@ -2,10 +2,12 @@
 // বাংলা: এই shared UI component-এ SettingsManagement অংশের display ও interaction পরিচালিত হয়।
 
 import {
+    useCallback,
     FormEvent,
     useEffect,
     useState,
 } from "react";
+import Image from "next/image";
 import { useTheme } from "@/context/ThemeContext";
 import {
     DEFAULT_THEME_SETTINGS,
@@ -139,11 +141,8 @@ export default function SettingsManagement() {
     const [error, setError] =
         useState("");
 
-    async function loadSettings() {
+    const loadSettings = useCallback(async () => {
         try {
-            setLoading(true);
-            setError("");
-
             const response =
                 await fetch(
                     "/api/admin/settings",
@@ -168,23 +167,28 @@ export default function SettingsManagement() {
             };
             setSettings(loadedSettings);
             applyTheme(loadedSettings);
-        } catch (error: any) {
+        } catch (error) {
             setError(
-                error?.message ||
-                    "Settings load failed",
+                error instanceof Error
+                    ? error.message
+                    : "Settings load failed",
             );
         } finally {
             setLoading(false);
         }
-    }
+    }, [applyTheme]);
 
     useEffect(() => {
-        loadSettings();
-    }, []);
+        const timer = setTimeout(() => {
+            void loadSettings();
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [loadSettings]);
 
     function update(
         key: keyof Settings,
-        value: any,
+        value: Settings[keyof Settings],
     ) {
         setSettings((prev) => ({ ...prev, [key]: value }));
     }
@@ -243,10 +247,11 @@ export default function SettingsManagement() {
             setMessage(
                 "Settings successfully saved.",
             );
-        } catch (error: any) {
+        } catch (error) {
             setError(
-                error?.message ||
-                    "Settings save failed",
+                error instanceof Error
+                    ? error.message
+                    : "Settings save failed",
             );
         } finally {
             setSaving(false);
@@ -535,11 +540,14 @@ export default function SettingsManagement() {
                         <div className="grid gap-6 md:grid-cols-[180px_1fr]">
                             <div className="flex h-44 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 p-4">
                                 {settings.logoUrl ? (
-                                    <img
+                                    <Image
                                         src={
                                             settings.logoUrl
                                         }
                                         alt={t("Organization Logo")}
+                                        width={500}
+                                        height={500}
+                                        unoptimized
                                         className="max-h-full max-w-full object-contain"
                                     />
                                 ) : (

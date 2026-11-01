@@ -11,6 +11,31 @@ The app requires:
   this application.
 - `JWT_SECRET`: unique random secret of at least 32 characters.
 
+Member password changes use a one-time email code. Configure these server-only
+SMTP variables in `.env.local` or the hosting provider's secret manager:
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your-smtp-user
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM="Al-Insaf <no-reply@example.com>"
+```
+
+Port `465` uses implicit TLS; other ports use the SMTP transport's normal
+STARTTLS behavior. Codes are stored hashed, expire after 10 minutes, and allow
+at most five verification attempts. A new code can be requested once per
+minute.
+
+### Privacy-minimized website traffic
+
+Public-page analytics use a random, tab-scoped browser session ID. The server
+stores only its HMAC hash, the public route, an optional referrer hostname, and
+timestamps. Admin/member routes, query strings, IP addresses, and user-agent
+strings are not recorded. Duplicate visits to the same route within a
+30-minute window are counted once; analytics records expire after 90 days.
+Admin-only traffic summaries are available from the dashboard.
+
 `GOOGLE_APPS_SCRIPT_URL` is used for member-file uploads through Google Apps
 Script. `GOOGLE_SHEETS_SYNC_SECRET` protects the sheet import/export APIs.
 Rotate any previously used sync token before publishing; the protected API

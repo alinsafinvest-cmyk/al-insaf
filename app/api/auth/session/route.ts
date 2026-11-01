@@ -4,6 +4,7 @@ import { getAuthUser } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/user";
 import { Member } from "@/lib/sheetsModels";
+import { getMemberPhotoUrl } from "@/lib/member-photo";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function GET() {
     try {
         await connectDB();
         const account = await User.findById(user.userId)
-            .select("name photoUrl role memberId")
+            .select("name email photoUrl role memberId")
             .lean();
 
         if (!account) {
@@ -33,36 +34,52 @@ export async function GET() {
             });
         }
 
-        let photoUrl = account.photoUrl || "";
+        let photoUrl = getMemberPhotoUrl(account.photoUrl);
         let name = account.name || "";
 
-        if (user.role === "member" && account.memberId) {
-            const memberRecord = await Member.findOne({
-                sourceSheet: "Members",
-                $or: [
-                    { recordId: account.memberId },
-                    { "data.MemberID": account.memberId },
-                    { MemberID: account.memberId },
-                ],
-            }).lean();
+        if (user.role === "member") {
+            const memberIdentity = account.memberId?.trim();
+            let memberRecord = memberIdentity
+                ? await Member.findOne({
+                    sourceSheet: "Members",
+                    $or: [
+                        { recordId: memberIdentity },
+                        { "data.MemberID": memberIdentity },
+                        { "data.Member ID": memberIdentity },
+                        { "data.memberId": memberIdentity },
+                        { MemberID: memberIdentity },
+                        { memberId: memberIdentity },
+                    ],
+                }).lean()
+                : null;
+
+            if (!memberRecord && account.email) {
+                memberRecord = await Member.findOne({
+                    sourceSheet: "Members",
+                    $or: [
+                        { "data.Gmail": account.email },
+                        { "data.Email": account.email },
+                        { "data.email": account.email },
+                        { Gmail: account.email },
+                        { Email: account.email },
+                        { email: account.email },
+                    ],
+                }).lean();
+            }
 
             if (memberRecord) {
-                const data = {
-                    ...(memberRecord.data || {}),
-                    ...memberRecord,
-                } as Record<string, unknown>;
+                const data = { ...(memberRecord.data || {}), ...memberRecord };
                 name = String(data["নাম"] || data.name || data.Name || name);
-                const storedPhoto = String(
+                const storedPhoto =
                     data["ছবি URL"] ||
                     data.photoUrl ||
                     data.photoFileId ||
                     data["ছবি File ID"] ||
-                    "",
-                ).trim();
+                    data["সদস্যের ছবি"] ||
+                    data.photo ||
+                    data.Photo;
                 if (storedPhoto) {
-                    photoUrl = /^https?:\/\//i.test(storedPhoto)
-                        ? storedPhoto
-                        : `https://drive.google.com/thumbnail?id=${encodeURIComponent(storedPhoto)}&sz=w256`;
+                    photoUrl = getMemberPhotoUrl(storedPhoto) || photoUrl;
                 }
             }
         }

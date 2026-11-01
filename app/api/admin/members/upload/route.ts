@@ -1,7 +1,10 @@
 // বাংলা: এই API route-এ admin → members → upload সংক্রান্ত request যাচাই, data access এবং JSON response পরিচালিত হয়।
 import { NextRequest, NextResponse } from "next/server";
 
+import { getMemberPhotoUrl } from "@/lib/member-photo";
+import { connectDB } from "@/lib/mongodb";
 import { requireRole } from "@/lib/require-auth";
+import User from "@/models/user";
 
 export const runtime = "nodejs";
 
@@ -140,6 +143,31 @@ export async function POST(
             );
         }
 
+        let photoUrl = "";
+        if (fileType === "photoFileId") {
+            photoUrl = getMemberPhotoUrl(result.fileId);
+            if (!photoUrl) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "আপলোড করা ছবির ID সঠিক নয়",
+                    },
+                    { status: 502 }
+                );
+            }
+
+            await connectDB();
+            await User.updateOne(
+                {
+                    role: "member",
+                    memberId,
+                },
+                {
+                    $set: { photoUrl },
+                }
+            );
+        }
+
         return NextResponse.json({
             success: true,
 
@@ -149,6 +177,8 @@ export async function POST(
             fileId:
                 result.fileId,
 
+            ...(photoUrl ? { photoUrl } : {}),
+
             fileName:
                 result.fileName,
 
@@ -156,7 +186,7 @@ export async function POST(
                 result.mimeType,
         });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "UPLOAD ERROR:",
             error
@@ -166,7 +196,7 @@ export async function POST(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "File upload করা যায়নি",
             },
             { status: 500 }

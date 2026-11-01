@@ -8,7 +8,24 @@ export interface IUser extends Document {
     role: "admin" | "member";
     memberId?: string;
     phone?: string;
+    whatsapp?: string;
+    address?: string;
     photoUrl?: string;
+    preferredLanguage?: "bn" | "en";
+    notificationPreferences?: {
+        emailUpdates: boolean;
+        transactionUpdates: boolean;
+        announcements: boolean;
+    };
+    pendingEmail?: string;
+    emailChangeCodeHash?: string;
+    emailChangeCodeExpiresAt?: Date;
+    emailChangeCodeAttempts?: number;
+    emailChangeCodeSentAt?: Date;
+    passwordChangeCodeHash?: string;
+    passwordChangeCodeExpiresAt?: Date;
+    passwordChangeCodeAttempts?: number;
+    passwordChangeCodeSentAt?: Date;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -50,10 +67,69 @@ const UserSchema = new Schema<IUser>(
             trim: true,
             default: "",
         },
+        whatsapp: {
+            type: String,
+            trim: true,
+            default: "",
+        },
+        address: {
+            type: String,
+            trim: true,
+            default: "",
+            maxlength: 500,
+        },
         photoUrl: {
             type: String,
             trim: true,
             default: "",
+        },
+        preferredLanguage: {
+            type: String,
+            enum: ["bn", "en"],
+            default: "bn",
+        },
+        notificationPreferences: {
+            emailUpdates: { type: Boolean, default: true },
+            transactionUpdates: { type: Boolean, default: true },
+            announcements: { type: Boolean, default: true },
+        },
+        pendingEmail: {
+            type: String,
+            trim: true,
+            lowercase: true,
+            select: false,
+        },
+        emailChangeCodeHash: {
+            type: String,
+            select: false,
+        },
+        emailChangeCodeExpiresAt: {
+            type: Date,
+            select: false,
+        },
+        emailChangeCodeAttempts: {
+            type: Number,
+            select: false,
+        },
+        emailChangeCodeSentAt: {
+            type: Date,
+            select: false,
+        },
+        passwordChangeCodeHash: {
+            type: String,
+            select: false,
+        },
+        passwordChangeCodeExpiresAt: {
+            type: Date,
+            select: false,
+        },
+        passwordChangeCodeAttempts: {
+            type: Number,
+            select: false,
+        },
+        passwordChangeCodeSentAt: {
+            type: Date,
+            select: false,
         },
         isActive: {
             type: Boolean,

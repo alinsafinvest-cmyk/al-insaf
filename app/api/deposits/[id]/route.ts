@@ -8,6 +8,7 @@ import {
     Member,
     CashBook,
 } from "@/lib/sheetsModels";
+import type { SheetData, SheetRecord } from "@/lib/sheet-record";
 import User from "@/models/user";
 
 export const runtime = "nodejs";
@@ -17,14 +18,14 @@ export const dynamic = "force-dynamic";
    Helpers
 ========================================================= */
 
-function getData(doc: any) {
+function getData(doc: SheetRecord): SheetRecord {
     return {
         ...(doc?.data || {}),
         ...doc,
     };
 }
 
-function getValue(data: any, ...keys: string[]) {
+function getValue(data: SheetData, ...keys: string[]) {
     for (const key of keys) {
         if (
             data?.[key] !== undefined &&
@@ -38,7 +39,7 @@ function getValue(data: any, ...keys: string[]) {
     return "";
 }
 
-function toNumber(value: any) {
+function toNumber(value: unknown) {
     if (typeof value === "number") return value;
 
     if (value === null || value === undefined) {
@@ -54,7 +55,7 @@ function toNumber(value: any) {
     return Number.isFinite(number) ? number : 0;
 }
 
-function normalizeStatus(value: any) {
+function normalizeStatus(value: unknown) {
     const status = String(value || "")
         .trim()
         .toLowerCase();
@@ -93,11 +94,11 @@ function normalizeStatus(value: any) {
     return "approved";
 }
 
-function formatDate(value: any) {
+function formatDate(value: unknown) {
     if (!value) return "";
 
     try {
-        const date = new Date(value);
+        const date = new Date(String(value));
 
         if (Number.isNaN(date.getTime())) {
             return String(value);
@@ -109,7 +110,7 @@ function formatDate(value: any) {
     }
 }
 
-function transformPayment(doc: any) {
+function transformPayment(doc: SheetRecord) {
     const data = getData(doc);
 
     const depositId =
@@ -344,7 +345,7 @@ async function generateDepositId() {
 
     let max = 0;
 
-    for (const doc of docs as any[]) {
+    for (const doc of docs as SheetRecord[]) {
         const data = doc.data || {};
 
         const id =
@@ -524,7 +525,7 @@ export async function GET(request: Request) {
             deposits,
             summary,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "GET /api/deposits error:",
             error
@@ -534,7 +535,7 @@ export async function GET(request: Request) {
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Deposit data load failed",
             },
             {
@@ -783,7 +784,7 @@ export async function POST(request: Request) {
                 status: 201,
             }
         );
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "POST /api/deposits error:",
             error
@@ -793,7 +794,7 @@ export async function POST(request: Request) {
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Deposit create failed",
             },
             {
@@ -1057,7 +1058,7 @@ export async function PATCH(request: Request) {
                 let balance = 0;
 
                 for (
-                    const item of cashBookDocs as any[]
+                    const item of cashBookDocs as SheetRecord[]
                 ) {
                     const data =
                         item.data || {};
@@ -1278,7 +1279,7 @@ export async function PATCH(request: Request) {
                 status: 400,
             }
         );
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "PATCH /api/deposits error:",
             error
@@ -1288,7 +1289,7 @@ export async function PATCH(request: Request) {
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Deposit update failed",
             },
             {

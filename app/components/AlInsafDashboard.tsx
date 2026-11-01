@@ -17,6 +17,7 @@ import {
     Wallet,
     type LucideIcon,
 } from "lucide-react";
+import TrafficAnalytics from "@/app/components/admin/TrafficAnalytics";
 
 interface Dashboard {
     members: {
@@ -557,6 +558,8 @@ export default function AlInsafDashboard() {
                 </div>
 
             </div>
+
+            <TrafficAnalytics compact />
 
             {/* =====================================================
                 PAYMENT STATUS

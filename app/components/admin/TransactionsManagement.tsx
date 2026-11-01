@@ -1,7 +1,10 @@
 "use client";
 // বাংলা: এই shared UI component-এ TransactionsManagement অংশের display ও interaction পরিচালিত হয়।
 
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
+    useCallback,
     useEffect,
     useMemo,
     useState,
@@ -238,6 +241,7 @@ function getStatusClass(status: TransactionStatus) {
 
 // বাংলা: এই component transaction record filter, details review ও management action পরিচালনা করে।
 export default function TransactionsManagement() {
+    const router = useRouter();
     const { language } = useLanguage();
     const t = (value: string) => translate(language, value);
     const [transactions, setTransactions] = useState<Transaction[]>(
@@ -268,11 +272,8 @@ export default function TransactionsManagement() {
     const [receiptTransaction, setReceiptTransaction] =
         useState<Transaction | null>(null);
 
-    async function loadTransactions() {
+    const loadTransactions = useCallback(async () => {
         try {
-            setLoading(true);
-            setError("");
-
             const response =
                 await fetch("/api/transactions", {
                     cache: "no-store",
@@ -294,21 +295,26 @@ export default function TransactionsManagement() {
             setSummary(
                 data.summary || emptySummary,
             );
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
 
             setError(
-                error?.message ||
-                    "Transactions load failed",
+                error instanceof Error
+                    ? error.message
+                    : "Transactions load failed",
             );
         } finally {
             setLoading(false);
         }
-    }
+    }, []);
 
     useEffect(() => {
-        loadTransactions();
-    }, []);
+        const timer = setTimeout(() => {
+            void loadTransactions();
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [loadTransactions]);
 
     const filteredTransactions = useMemo(() => {
         const query =
@@ -371,23 +377,21 @@ export default function TransactionsManagement() {
         transaction: Transaction,
     ) {
         if (transaction.type === "deposit") {
-            window.location.href =
-                "/admin/dashboard/deposits";
+            router.push("/admin/dashboard/deposits");
             return;
         }
 
         if (transaction.type === "withdrawal") {
-            window.location.href =
-                "/admin/dashboard/withdrawals";
+            router.push("/admin/dashboard/withdrawals");
             return;
         }
 
-        window.location.href =
-            "/admin/dashboard/loans";
+        router.push("/admin/dashboard/loans");
     }
 
     function printReceipt(transaction: Transaction) {
         if (transaction.status !== "approved") return;
+        setReceiptTransaction(transaction);
 
         const opened = openOfficialReceipt({
             kind: transaction.type === "loan" ? "transaction" : transaction.type,
@@ -484,7 +488,11 @@ export default function TransactionsManagement() {
                         </div>
 
                         <button
-                            onClick={loadTransactions}
+                            onClick={() => {
+                                setLoading(true);
+                                setError("");
+                                void loadTransactions();
+                            }}
                             disabled={loading}
                             className="rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50"
                         >
@@ -506,7 +514,11 @@ export default function TransactionsManagement() {
                             </div>
 
                             <button
-                                onClick={loadTransactions}
+                                onClick={() => {
+                                    setLoading(true);
+                                    setError("");
+                                    void loadTransactions();
+                                }}
                                 className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white"
                             >
                                 {t("Retry")}
@@ -1081,17 +1093,23 @@ export default function TransactionsManagement() {
                 <div className="print-receipt">
                     <div className="receipt-paper">
                         <div className="receipt-watermark">
-                            <img
+                            <Image
                                 src={LOGO}
                                 alt="Al-Insaf Logo"
+                                width={420}
+                                height={420}
+                                unoptimized
                             />
                         </div>
 
                         <div className="receipt-content">
                             <div className="text-center">
-                                <img
+                                <Image
                                     src={LOGO}
                                     alt="Al-Insaf"
+                                    width={80}
+                                    height={80}
+                                    unoptimized
                                     className="mx-auto mb-3 h-20 w-20 object-contain"
                                 />
 

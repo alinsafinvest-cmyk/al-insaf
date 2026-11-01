@@ -4,11 +4,12 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Member, Payment, SystemConfig } from "@/lib/sheetsModels";
 import Transaction from "@/models/Transaction";
+import type { SheetRecord } from "@/lib/sheet-record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function getData(record: any) {
+function getData(record: SheetRecord): SheetRecord {
     return { ...(record?.data || {}), ...record };
 }
 
@@ -20,12 +21,12 @@ function toNumber(value: unknown) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function isApproved(record: Record<string, any>) {
+function isApproved(record: Record<string, unknown>) {
     const status = String(record.Status ?? record.status ?? "").trim().toLowerCase();
     return !["pending", "processing", "submitted", "rejected", "reject", "failed", "cancelled"].includes(status);
 }
 
-function getTransactionType(record: Record<string, any>) {
+function getTransactionType(record: Record<string, unknown>) {
     const source = String(record.sourceSheet || "").trim().toLowerCase();
     const type = String(
         record.Type ??
@@ -88,7 +89,7 @@ export async function GET() {
             }).lean(),
         ]);
 
-        const activeMembers = members.filter((member: any) => {
+        const activeMembers = members.filter((member: SheetRecord) => {
             const data = getData(member);
             const status = String(
                 data.Status ?? data.status ?? data.LoginStatus ?? data.loginStatus ?? "",
@@ -99,7 +100,7 @@ export async function GET() {
         let loansDistributed = 0;
         let savingsCollected = 0;
 
-        for (const payment of payments as any[]) {
+        for (const payment of payments as SheetRecord[]) {
             const data = getData(payment);
             if (!isApproved(data)) continue;
 
@@ -118,13 +119,13 @@ export async function GET() {
             if (transactionType === "deposit") savingsCollected += amount;
         }
 
-        for (const transaction of transactions as any[]) {
+        for (const transaction of transactions as SheetRecord[]) {
             const amount = toNumber(transaction.amount);
             if (transaction.type === "loan") loansDistributed += amount;
             if (transaction.type === "deposit") savingsCollected += amount;
         }
 
-        const settings = (config as any)?.data || {};
+        const settings = (config as SheetRecord | null)?.data || {};
 
         return NextResponse.json({
             success: true,

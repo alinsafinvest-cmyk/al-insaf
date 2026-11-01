@@ -6,6 +6,7 @@ import "./globals.css";
 import { LanguageProvider } from "../context/LanguageContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import SkipToContent from "@/app/components/SkipToContent";
+import AnalyticsTracker from "@/app/components/AnalyticsTracker";
 
 
 const hindSiliguri = Hind_Siliguri({
@@ -22,6 +23,20 @@ export const metadata: Metadata = {
   description:
     "বিশ্বাসে বিনিয়োগ, ইনসাফে সমৃদ্ধি। আল ইনসাফ ইনভেস্টমেন্ট সোসাইটির অফিসিয়াল ওয়েবসাইট।",
   applicationName: "আল ইনসাফ ইনভেস্টমেন্ট সোসাইটি",
+  openGraph: {
+    type: "website",
+    locale: "bn_BD",
+    siteName: "আল ইনসাফ ইনভেস্টমেন্ট সোসাইটি",
+    title: "আল ইনসাফ ইনভেস্টমেন্ট সোসাইটি",
+    description:
+      "বিশ্বাসে বিনিয়োগ, ইনসাফে সমৃদ্ধি। সেবা, সদস্যপদ ও সদস্য পোর্টাল সম্পর্কে জানুন।",
+  },
+  twitter: {
+    card: "summary",
+    title: "আল ইনসাফ ইনভেস্টমেন্ট সোসাইটি",
+    description:
+      "বিশ্বাসে বিনিয়োগ, ইনসাফে সমৃদ্ধি। আল ইনসাফ ইনভেস্টমেন্ট সোসাইটির অফিসিয়াল ওয়েবসাইট।",
+  },
   icons: {
     icon: "/WhatsApp%20Image%202026-10-01%20at%208.09.06%20PM.jpeg",
     apple: "/WhatsApp%20Image%202026-10-01%20at%208.09.06%20PM.jpeg",
@@ -48,6 +63,7 @@ export default function RootLayout({
         <ThemeProvider>
           <LanguageProvider>
             <SkipToContent />
+            <AnalyticsTracker />
             {children}
           </LanguageProvider>
         </ThemeProvider>

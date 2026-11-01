@@ -6,6 +6,7 @@ import {
     createContext,
     useContext,
     useEffect,
+    useCallback,
     useSyncExternalStore,
     type ReactNode,
 } from "react";
@@ -79,7 +80,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         document.documentElement.lang = language;
     }, [language]);
 
-    function setLanguage(nextLanguage: Language) {
+    const setLanguage = useCallback((nextLanguage: Language) => {
         activeLanguage = nextLanguage;
         try {
             window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
@@ -87,7 +88,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
             console.warn("Could not save the language preference:", error);
         }
         languageListeners.forEach((listener) => listener());
-    }
+    }, []);
 
     return (
         <LanguageContext.Provider

@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/mongodb";
 import { getAuthUser } from "@/lib/auth";
 import User from "@/models/user";
 import { Member, Payment, Notice } from "@/lib/sheetsModels";
+import type { SheetData, SheetRecord } from "@/lib/sheet-record";
+import { getMemberPhotoUrl } from "@/lib/member-photo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +26,7 @@ const text = (value: unknown) =>
 const normalize = (value: unknown) =>
     text(value).toLowerCase();
 
-function field(data: any, ...names: string[]) {
+function field(data: SheetData, ...names: string[]) {
     for (const name of names) {
         if (data?.[name] !== undefined && data[name] !== null) {
             if (text(data[name]) !== "") return data[name];
@@ -33,13 +35,13 @@ function field(data: any, ...names: string[]) {
     return "";
 }
 
-function getData(doc: any) {
+function getData(doc: SheetRecord | null): SheetRecord {
     return doc?.data && typeof doc.data === "object"
         ? doc.data
         : doc ?? {};
 }
 
-function getMemberId(data: any) {
+function getMemberId(data: SheetData) {
     return text(field(
         data,
         "MemberID",
@@ -49,7 +51,7 @@ function getMemberId(data: any) {
     ));
 }
 
-function getAmount(data: any) {
+function getAmount(data: SheetData) {
     const raw = field(
         data,
         "Amount",
@@ -63,16 +65,11 @@ function getAmount(data: any) {
     return Number.isFinite(amount) && amount > 0 ? amount : 0;
 }
 
-function getStatus(data: any) {
+function getStatus(data: SheetData) {
     return text(field(data, "Status", "status")) || "Unknown";
 }
 
-function isApproved(data: any) {
-    return ["approved", "paid", "completed", "success", "successful"]
-        .includes(normalize(getStatus(data)));
-}
-
-function getType(doc: any, data: any) {
+function getType(doc: SheetRecord, data: SheetData) {
     const source = normalize(doc?.sourceSheet);
     const value = normalize(field(
         data,
@@ -104,11 +101,21 @@ function getType(doc: any, data: any) {
     return "deposit";
 }
 
-function safeProfile(data: any) {
+function safeProfile(data: SheetData) {
     // NID, password বা সংবেদনশীল তথ্য ফেরত দেওয়া হয় না।
     return {
         memberId: field(data, "MemberID", "Member ID"),
         name: field(data, "নাম", "Name"),
+    photoUrl: field(
+        data,
+        "ছবি URL",
+        "photoUrl",
+        "photoFileId",
+        "ছবি File ID",
+        "সদস্যের ছবি",
+        "photo",
+        "Photo"
+    ),
         whatsapp: field(data, "WhatsApp"),
         otherMobile: field(data, "অন্য মোবাইল", "মোবাইল", "Mobile"),
         email: field(data, "Gmail", "Email"),
@@ -136,12 +143,12 @@ async function getContext() {
 
     await connectDB();
 
-    const account: any = await User.findOne({
+    const account = await User.findOne({
         _id: session.userId,
         role: "member",
         isActive: true,
     })
-        .select("name email memberId phone photoUrl")
+        .select("name email memberId phone whatsapp address photoUrl preferredLanguage notificationPreferences")
         .lean();
 
     if (!account) {
@@ -152,7 +159,7 @@ async function getContext() {
     const accountEmail = normalize(account.email);
 
     // প্রথমে account-এর MemberID; না থাকলে email দিয়ে member খোঁজা।
-    let memberDoc: any = null;
+    let memberDoc: SheetRecord | null = null;
 
     if (accountMemberId) {
         memberDoc = await Member.findOne({
@@ -203,10 +210,10 @@ export async function GET() {
             );
         }
 
-        const { account, sheetData, memberId, email } = context;
+        const { account, sheetData, memberId } = context;
 
         // MemberID না থাকলে আর্থিক record ফেরত দেওয়া হবে না।
-        const docs: any[] = memberId
+        const docs: SheetRecord[] = memberId
             ? await Payment.find({
                 sourceSheet: { $in: SHEETS },
             })
@@ -273,7 +280,7 @@ export async function GET() {
             (item) => item.type === "loan_payment"
         );
 
-        const approvedTotal = (items: any[]) =>
+        const approvedTotal = (items: SheetRecord[]) =>
             items.reduce((sum, item) => {
                 return ["approved", "paid", "completed", "success", "successful"]
                     .includes(normalize(item.status))
@@ -281,7 +288,7 @@ export async function GET() {
                     : sum;
             }, 0);
 
-        const noticeDocs: any[] = await Notice.find({
+        const noticeDocs: SheetRecord[] = await Notice.find({
             sourceSheet: "Notices",
         })
             .sort({ createdAt: -1 })
@@ -317,7 +324,17 @@ export async function GET() {
                 name: text(account.name) || text(safeProfile(sheetData).name),
                 email: text(account.email) || text(safeProfile(sheetData).email),
                 phone: text(account.phone) || text(safeProfile(sheetData).otherMobile),
-                photoUrl: text(account.photoUrl),
+                whatsapp: text(account.whatsapp) || text(safeProfile(sheetData).whatsapp),
+                address: text(account.address) || text(safeProfile(sheetData).address),
+                photoUrl: getMemberPhotoUrl(
+                    text(account.photoUrl) || safeProfile(sheetData).photoUrl
+                ),
+                preferredLanguage: account.preferredLanguage || "bn",
+                notificationPreferences: account.notificationPreferences || {
+                    emailUpdates: true,
+                    transactionUpdates: true,
+                    announcements: true,
+                },
                 sheetLinked: Boolean(context.memberDoc),
             },
             transactions,
@@ -361,6 +378,12 @@ export async function PATCH(request: NextRequest) {
 
         const name = text(body.name);
         const phone = text(body.phone);
+        const whatsapp = text(body.whatsapp);
+        const address = text(body.address);
+        const photoInput = text(body.photoUrl);
+        const photoUrl = photoInput ? getMemberPhotoUrl(photoInput) : "";
+        const preferredLanguage = body.preferredLanguage;
+        const notificationPreferences = body.notificationPreferences;
 
         if (name.length < 2 || name.length > 100) {
             return NextResponse.json(
@@ -376,21 +399,68 @@ export async function PATCH(request: NextRequest) {
             );
         }
 
-        const updated: any = await User.findOneAndUpdate(
+        if (whatsapp.length > 25 || address.length > 500) {
+            return NextResponse.json(
+                { success: false, message: "WhatsApp বা ঠিকানার তথ্য সঠিক নয়" },
+                { status: 400 }
+            );
+        }
+
+        if (preferredLanguage !== "bn" && preferredLanguage !== "en") {
+            return NextResponse.json(
+                { success: false, message: "ভাষার পছন্দ সঠিক নয়" },
+                { status: 400 }
+            );
+        }
+
+        const preferenceKeys = ["emailUpdates", "transactionUpdates", "announcements"] as const;
+        if (
+            !notificationPreferences ||
+            typeof notificationPreferences !== "object" ||
+            preferenceKeys.some((key) => typeof notificationPreferences[key] !== "boolean")
+        ) {
+            return NextResponse.json(
+                { success: false, message: "নোটিফিকেশন পছন্দ সঠিক নয়" },
+                { status: 400 }
+            );
+        }
+
+        if (
+            photoInput.length > 2048 ||
+            (photoInput && (!photoUrl || !photoUrl.startsWith("https://")))
+        ) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "ছবির জন্য একটি বৈধ HTTPS বা Google Drive link দিন",
+                },
+                { status: 400 }
+            );
+        }
+
+        const updated = await User.findOneAndUpdate(
             {
                 _id: context.account._id,
                 role: "member",
                 isActive: true,
             },
             {
-                $set: { name, phone },
+                $set: {
+                    name,
+                    phone,
+                    whatsapp,
+                    address,
+                    photoUrl,
+                    preferredLanguage,
+                    notificationPreferences,
+                },
             },
             {
                 new: true,
                 runValidators: true,
             }
         )
-            .select("name email memberId phone photoUrl")
+            .select("name email memberId phone whatsapp address photoUrl preferredLanguage notificationPreferences")
             .lean();
 
         if (!updated) {
@@ -408,7 +478,11 @@ export async function PATCH(request: NextRequest) {
                 email: updated.email,
                 memberId: updated.memberId || "",
                 phone: updated.phone || "",
-                photoUrl: updated.photoUrl || "",
+                whatsapp: updated.whatsapp || "",
+                address: updated.address || "",
+                photoUrl: getMemberPhotoUrl(updated.photoUrl),
+                preferredLanguage: updated.preferredLanguage || "bn",
+                notificationPreferences: updated.notificationPreferences,
             },
         });
     } catch (error) {

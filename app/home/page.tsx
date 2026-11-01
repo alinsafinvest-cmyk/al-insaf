@@ -40,10 +40,6 @@ import {
 
     Phone,
 
-    Mail,
-
-    MapPin,
-
     ChevronRight,
     ChevronDown,
 
@@ -617,33 +613,33 @@ export default function Home() {
     const contactItems = [
 
         {
-
-            icon: Phone,
-
-            title: bn ? "ফোন" : "Phone",
-
-            detail: bn ? "আপনার ফোন নম্বর যোগ করুন" : "Add your phone number",
-
+            icon: Users,
+            title: bn ? "সদস্যপদ সম্পর্কে" : "Membership",
+            detail: bn
+                ? "নতুন সদস্য হতে আপনার তথ্য জমা দিন। আমাদের দল আপনার দেওয়া যোগাযোগের মাধ্যমে পরবর্তী ধাপ জানাবে।"
+                : "Interested in joining? Submit your details and our team will follow up using the contact information you provide.",
+            action: "membership",
+            actionLabel: bn ? "আবেদন শুরু করুন" : "Start an application",
         },
 
         {
-
-            icon: Mail,
-
-            title: bn ? "ইমেইল" : "Email",
-
-            detail: "your-email\@example.com",
-
+            icon: ShieldCheck,
+            title: bn ? "সেবা ও শর্তাবলি" : "Services & Terms",
+            detail: bn
+                ? "সেবা, প্রক্রিয়া ও প্রযোজ্য শর্ত সম্পর্কে জেনে সিদ্ধান্ত নিন।"
+                : "Explore our services, processes and applicable terms before deciding.",
+            action: "services",
+            actionLabel: bn ? "সেবাসমূহ দেখুন" : "Explore services",
         },
 
         {
-
-            icon: MapPin,
-
-            title: bn ? "ঠিকানা" : "Address",
-
-            detail: bn ? "আপনার অফিসের ঠিকানা যোগ করুন" : "Add your office address",
-
+            icon: LogIn,
+            title: bn ? "সদস্য পোর্টাল" : "Member Portal",
+            detail: bn
+                ? "বিদ্যমান সদস্যরা নিরাপদ পোর্টালে প্রবেশ করে নিজেদের অ্যাকাউন্ট দেখতে পারেন।"
+                : "Existing members can sign in to access their account in the member portal.",
+            action: "portal",
+            actionLabel: bn ? "সদস্য লগইন" : "Member sign in",
         },
 
     ];
@@ -1495,7 +1491,7 @@ export default function Home() {
 
                 id="home"
 
-                className="hero-pattern relative isolate scroll-mt-20 overflow-hidden bg-[#3e81b1] text-white"
+                className="hero-pattern relative isolate scroll-mt-20 overflow-hidden bg-[#073b32] text-white"
 
             >
 
@@ -2537,17 +2533,15 @@ export default function Home() {
 
                     <SectionHeading
 
-                        eyebrow={bn ? "যোগাযোগ" : "Contact Us"}
-
-                        title={bn ? "আমাদের সঙ্গে কথা বলুন" : "Talk to Our Team"}
-
+                        eyebrow={bn ? "সদস্যপদ ও সহায়তা" : "Membership & Support"}
+                        title={bn ? "পরবর্তী ধাপ শুরু করুন" : "Choose your next step"}
                         description={
 
                             bn
 
-                                ? "সদস্যপদ বা সেবা সম্পর্কে জানতে আমাদের সঙ্গে যোগাযোগ করুন।"
+                                ? "সদস্যপদের আবেদন, সেবার তথ্য বা সদস্য পোর্টাল—আপনার প্রয়োজন অনুযায়ী এগিয়ে যান।"
 
-                                : "Reach out for information about membership and services."
+                                : "Start a membership application, explore our services or sign in to your member account."
 
                         }
 
@@ -2597,11 +2591,30 @@ export default function Home() {
 
 
 
-                                <p className={`mt-2 break-all text-sm ${bodyColor}`}>
+                                <p className={`mt-2 text-sm leading-7 ${bodyColor}`}>
 
                                     {item.detail}
 
                                 </p>
+
+                                {item.action === "membership" ? (
+                                    <button
+                                        type="button"
+                                        onClick={openMembershipForm}
+                                        className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                                    >
+                                        {item.actionLabel}
+                                        <ArrowRight size={16} aria-hidden="true" />
+                                    </button>
+                                ) : (
+                                    <a
+                                        href={item.action === "services" ? "#services" : "/member/login"}
+                                        className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                                    >
+                                        {item.actionLabel}
+                                        <ArrowRight size={16} aria-hidden="true" />
+                                    </a>
+                                )}
 
                             </article>
 

@@ -82,18 +82,6 @@ function numberValue(value) {
     return Number.isFinite(number) ? number : null;
 }
 
-function driveFileId(value) {
-    const url = clean(value);
-
-    if (!url) {
-        return "";
-    }
-
-    const match = url.match(/[?&]id=([^&]+)/);
-
-    return match ? match[1] : url;
-}
-
 // ==========================================
 // CSV Path
 // ==========================================

@@ -4,20 +4,21 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { requireRole } from "@/lib/require-auth";
 import { Payment } from "@/lib/sheetsModels";
+import type { SheetData, SheetRecord } from "@/lib/sheet-record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type TransactionType = "deposit" | "withdrawal" | "loan";
 
-function getData(record: any) {
+function getData(record: SheetRecord): SheetRecord {
     return {
         ...(record?.data || {}),
         ...(record || {}),
     };
 }
 
-function getValue(data: any, keys: string[], fallback = "") {
+function getValue(data: SheetData, keys: string[], fallback = "") {
     for (const key of keys) {
         const value = data?.[key];
 
@@ -33,7 +34,7 @@ function getValue(data: any, keys: string[], fallback = "") {
     return fallback;
 }
 
-function toNumber(value: any) {
+function toNumber(value: unknown) {
     if (typeof value === "number") {
         return Number.isFinite(value) ? value : 0;
     }
@@ -51,7 +52,7 @@ function toNumber(value: any) {
     return Number.isFinite(number) ? number : 0;
 }
 
-function normalizeStatus(value: any) {
+function normalizeStatus(value: unknown) {
     const status = String(value || "")
         .trim()
         .toLowerCase();
@@ -87,7 +88,7 @@ function normalizeStatus(value: any) {
 }
 
 function detectTransactionType(
-    data: any,
+    data: SheetData,
     sourceSheet: string,
 ): TransactionType | null {
     const source = sourceSheet.toLowerCase();
@@ -166,7 +167,7 @@ function detectTransactionType(
 }
 
 function getTransactionId(
-    data: any,
+    data: SheetData,
     sourceSheet: string,
     fallback: string,
 ) {
@@ -190,12 +191,12 @@ function getTransactionId(
                 "paymentId",
                 "Payment ID",
             ],
-            getValue(data, ["recordId"], fallback),
+            String(getValue(data, ["recordId"], fallback)),
         ),
     );
 }
 
-function getDate(data: any, record: any) {
+function getDate(data: SheetData, record: SheetRecord) {
     const value = getValue(data, [
         "DepositDate",
         "depositDate",
@@ -232,7 +233,7 @@ function getDate(data: any, record: any) {
     return null;
 }
 
-function formatTransaction(record: any) {
+function formatTransaction(record: SheetRecord) {
     const data = getData(record);
 
     const sourceSheet = String(
@@ -439,10 +440,10 @@ export async function GET() {
             .lean();
 
         const transactions = records
-            .map((record: any) => formatTransaction(record))
-            .filter(Boolean);
+            .map((record: SheetRecord) => formatTransaction(record))
+            .filter((record): record is NonNullable<typeof record> => record !== null);
 
-        const items = transactions as any[];
+        const items = transactions;
 
         const totalCount = items.length;
 
@@ -553,14 +554,14 @@ export async function GET() {
             summary,
             transactions: items,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Transactions API Error:", error);
 
         return NextResponse.json(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Transactions data load failed",
             },
             {

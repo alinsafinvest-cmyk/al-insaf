@@ -1,7 +1,7 @@
 "use client";
 // বাংলা: এই shared UI component-এ Header অংশের display ও interaction পরিচালিত হয়।
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
     Bell,
@@ -45,6 +45,40 @@ export default function Header({
     const [profileOpen, setProfileOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [profile, setProfile] = useState<SessionProfile | null>(null);
+    const [logoutPending, setLogoutPending] = useState(false);
+    const [logoutError, setLogoutError] = useState("");
+    const notificationRef = useRef<HTMLDivElement>(null);
+    const profileRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function dismissMenus(event: MouseEvent | KeyboardEvent) {
+            if (event instanceof KeyboardEvent && event.key === "Escape") {
+                setNotificationsOpen(false);
+                setProfileOpen(false);
+                return;
+            }
+
+            if (
+                event instanceof MouseEvent &&
+                event.target instanceof Node
+            ) {
+                if (!notificationRef.current?.contains(event.target)) {
+                    setNotificationsOpen(false);
+                }
+                if (!profileRef.current?.contains(event.target)) {
+                    setProfileOpen(false);
+                }
+            }
+        }
+
+        document.addEventListener("mousedown", dismissMenus);
+        document.addEventListener("keydown", dismissMenus);
+
+        return () => {
+            document.removeEventListener("mousedown", dismissMenus);
+            document.removeEventListener("keydown", dismissMenus);
+        };
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -71,11 +105,23 @@ export default function Header({
     }, [role]);
 
     const logout = async () => {
+        if (logoutPending) return;
+
         try {
-            await fetch("/api/auth/logout", {
+            setLogoutPending(true);
+            setLogoutError("");
+
+            const response = await fetch("/api/auth/logout", {
                 method: "POST",
             });
-        } finally {
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(
+                    result.message || "Logout failed."
+                );
+            }
+
             router.push(
                 role === "admin"
                     ? "/admin/login"
@@ -83,6 +129,15 @@ export default function Header({
             );
 
             router.refresh();
+        } catch (error) {
+            console.error("Dashboard logout failed:", error);
+            setLogoutError(
+                bn
+                    ? "লগআউট করা যায়নি। আবার চেষ্টা করুন।"
+                    : "Logout failed. Please try again."
+            );
+        } finally {
+            setLogoutPending(false);
         }
     };
 
@@ -125,12 +180,17 @@ export default function Header({
 
                     {/* Notification */}
 
-                    <div className="relative hidden sm:block">
+                    <div className="relative hidden sm:block" ref={notificationRef}>
                         <button
                             type="button"
-                            onClick={() => setNotificationsOpen((open) => !open)}
-                            aria-label={bn ? "বিজ্ঞপ্তি" : "Notifications"}
+                            onClick={() => {
+                                setNotificationsOpen((open) => !open);
+                                setProfileOpen(false);
+                            }}
+                            aria-label={bn ? "দ্রুত লিংক" : "Quick links"}
                             aria-expanded={notificationsOpen}
+                            aria-haspopup="menu"
+                            title={bn ? "দ্রুত লিংক" : "Quick links"}
                             className="
                                 rounded-xl p-2.5
                                 text-slate-600 hover:bg-slate-100
@@ -140,13 +200,53 @@ export default function Header({
                             <Bell size={19} />
                         </button>
                         {notificationsOpen && (
-                            <div className="absolute right-0 z-50 mt-2 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                                <p className="font-bold text-slate-900 dark:text-white">
-                                    {bn ? "বিজ্ঞপ্তি" : "Notifications"}
+                            <div
+                                role="menu"
+                                className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+                            >
+                                <p className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    {bn ? "দ্রুত লিংক" : "Quick links"}
                                 </p>
-                                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                                    {bn ? "নতুন বিজ্ঞপ্তি এখানে দেখা যাবে।" : "New notifications will appear here."}
-                                </p>
+                                {(role === "admin"
+                                    ? [
+                                          {
+                                              label: bn ? "সদস্য ব্যবস্থাপনা" : "Members",
+                                              href: "/admin/dashboard/members",
+                                          },
+                                          {
+                                              label: bn ? "জমা ব্যবস্থাপনা" : "Deposits",
+                                              href: "/admin/dashboard/deposits",
+                                          },
+                                          {
+                                              label: bn ? "ওয়েব ট্রাফিক" : "Website traffic",
+                                              href: "/admin/dashboard/traffic",
+                                          },
+                                      ]
+                                    : [
+                                          {
+                                              label: bn ? "আমার প্রোফাইল" : "My profile",
+                                              href: "/member/dashboard/profile",
+                                          },
+                                          {
+                                              label: bn ? "লেনদেন" : "Transactions",
+                                              href: "/member/dashboard/transactions",
+                                          },
+                                          {
+                                              label: bn ? "নোটিশ" : "Notices",
+                                              href: "/member/dashboard/notices",
+                                          },
+                                      ]
+                                ).map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        role="menuitem"
+                                        href={item.href}
+                                        onClick={() => setNotificationsOpen(false)}
+                                        className="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-200 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-200"
+                                    >
+                                        {item.label}
+                                    </Link>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -186,7 +286,7 @@ export default function Header({
                     <Link
                         href="/"
                         aria-label={bn ? "হোম পেজে যান" : "Go to home page"}
-                        className="
+                        className="hidden sm:flex
                             flex items-center gap-2 rounded-xl px-2.5 py-2
                             text-xs font-semibold text-slate-600 hover:bg-slate-100
                             dark:text-slate-300 dark:hover:bg-slate-800
@@ -198,15 +298,20 @@ export default function Header({
 
                     {/* Profile */}
 
-                    <div className="relative">
+                    <div className="relative" ref={profileRef}>
 
                         <button
                             type="button"
                             aria-label={bn ? "অ্যাকাউন্ট মেনু" : "Account menu"}
                             aria-expanded={profileOpen}
                             onClick={() =>
-                                setProfileOpen((prev) => !prev)
+                                {
+                                    setProfileOpen((prev) => !prev);
+                                    setNotificationsOpen(false);
+                                    setLogoutError("");
+                                }
                             }
+                            aria-haspopup="menu"
                             className="
                                 flex
                                 items-center
@@ -230,6 +335,13 @@ export default function Header({
                                         unoptimized
                                         sizes="36px"
                                         className="object-cover"
+                                        onError={() => {
+                                            setProfile((current) =>
+                                                current
+                                                    ? { ...current, photoUrl: "" }
+                                                    : null
+                                            );
+                                        }}
                                     />
                                 ) : profile?.name ? (
                                     <span className="text-sm font-bold">{profile.name.charAt(0).toUpperCase()}</span>
@@ -255,6 +367,7 @@ export default function Header({
 
                         {profileOpen && (
                             <div
+                                role="menu"
                                 className="absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
                             >
                                 <div className="border-b border-slate-200 p-4 dark:border-slate-700">
@@ -268,9 +381,21 @@ export default function Header({
                                     </p>
                                 </div>
 
+                                {logoutError && (
+                                    <p
+                                        role="alert"
+                                        className="mx-3 my-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                                    >
+                                        {logoutError}
+                                    </p>
+                                )}
+
                                 <button
                                     type="button"
                                     onClick={logout}
+                                    disabled={logoutPending}
+                                    aria-busy={logoutPending}
+                                    role="menuitem"
                                     className="
                                         flex
                                         w-full
@@ -283,10 +408,17 @@ export default function Header({
                                         text-red-600
                                         hover:bg-red-50
                                         dark:hover:bg-red-950/30
+                                        disabled:cursor-wait disabled:opacity-60
                                     "
                                 >
-                                    <LogOut size={17} />
-                                    {bn ? "লগআউট" : "Logout"}
+                                    <LogOut size={17} className={logoutPending ? "animate-pulse" : undefined} />
+                                    {logoutPending
+                                        ? bn
+                                            ? "লগআউট হচ্ছে..."
+                                            : "Signing out..."
+                                        : bn
+                                          ? "লগআউট"
+                                          : "Logout"}
                                 </button>
                             </div>
                         )}

@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { requireRole } from "@/lib/require-auth";
+import type { SheetData, SheetRecord } from "@/lib/sheet-record";
 import {
     Member,
     CashBook,
@@ -11,14 +12,14 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function getData(doc: any) {
+function getData(doc: SheetRecord): SheetRecord {
     return {
         ...(doc?.data || {}),
         ...(doc || {}),
     };
 }
 
-function getValue(data: any, keys: string[], fallback = "") {
+function getValue(data: SheetData, keys: string[], fallback = "") {
     for (const key of keys) {
         const value = data?.[key];
 
@@ -34,7 +35,7 @@ function getValue(data: any, keys: string[], fallback = "") {
     return fallback;
 }
 
-function toNumber(value: any) {
+function toNumber(value: unknown) {
     const n = Number(
         String(value ?? "")
             .replace(/,/g, "")
@@ -45,7 +46,7 @@ function toNumber(value: any) {
     return Number.isFinite(n) ? n : 0;
 }
 
-function normalizeStatus(value: any) {
+function normalizeStatus(value: unknown) {
     const status = String(value || "")
         .trim()
         .toLowerCase();
@@ -56,7 +57,7 @@ function normalizeStatus(value: any) {
     return "pending";
 }
 
-function isLoanRecord(doc: any) {
+function isLoanRecord(doc: SheetRecord) {
     const data = getData(doc);
 
     const sourceSheet = String(
@@ -90,7 +91,17 @@ function isLoanRecord(doc: any) {
     );
 }
 
-function formatLoan(doc: any) {
+type FormattedLoan = {
+    amount: number;
+    paidAmount: number;
+    dueAmount: number;
+    status: string;
+    createdAt: unknown;
+    loanDate: unknown;
+    [key: string]: unknown;
+};
+
+function formatLoan(doc: SheetRecord): FormattedLoan {
     const data = getData(doc);
 
     const loanId = getValue(data, [
@@ -317,7 +328,7 @@ function formatLoan(doc: any) {
     };
 }
 
-function makeLoanId(existing: any[]) {
+function makeLoanId(existing: SheetRecord[]) {
     const now = new Date();
 
     const datePart =
@@ -353,7 +364,7 @@ function makeLoanId(existing: any[]) {
 async function findLoan(loanId: string) {
     const docs = await Payment.find({}).lean();
 
-    return docs.find((doc: any) => {
+    return docs.find((doc: SheetRecord) => {
         if (!isLoanRecord(doc)) return false;
 
         const loan = formatLoan(doc);
@@ -417,60 +428,56 @@ export async function GET() {
         const loans = docs
             .filter(isLoanRecord)
             .map(formatLoan)
-            .sort((a: any, b: any) => {
+            .sort((a, b) => {
                 return (
-                    new Date(
-                        b.createdAt || b.loanDate || 0,
-                    ).getTime() -
-                    new Date(
-                        a.createdAt || a.loanDate || 0,
-                    ).getTime()
+                    new Date(String(b.createdAt || b.loanDate || 0)).getTime() -
+                    new Date(String(a.createdAt || a.loanDate || 0)).getTime()
                 );
             });
 
         const pending = loans.filter(
-            (x: any) => x.status === "pending",
+            (x) => x.status === "pending",
         );
 
         const approved = loans.filter(
-            (x: any) => x.status === "approved",
+            (x) => x.status === "approved",
         );
 
         const rejected = loans.filter(
-            (x: any) => x.status === "rejected",
+            (x) => x.status === "rejected",
         );
 
         const totalApprovedAmount =
             approved.reduce(
-                (sum: number, item: any) =>
+                (sum, item) =>
                     sum + item.amount,
                 0,
             );
 
         const totalPendingAmount =
             pending.reduce(
-                (sum: number, item: any) =>
+                (sum, item) =>
                     sum + item.amount,
                 0,
             );
 
         const totalRejectedAmount =
             rejected.reduce(
-                (sum: number, item: any) =>
+                (sum, item) =>
                     sum + item.amount,
                 0,
             );
 
         const totalPaid =
             approved.reduce(
-                (sum: number, item: any) =>
+                (sum, item) =>
                     sum + item.paidAmount,
                 0,
             );
 
         const totalDue =
             approved.reduce(
-                (sum: number, item: any) =>
+                (sum, item) =>
                     sum + item.dueAmount,
                 0,
             );
@@ -509,14 +516,14 @@ export async function GET() {
                 cashBalance: cash.balance,
             },
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("LOANS GET ERROR:", error);
 
         return NextResponse.json(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Loan data load failed",
             },
             { status: 500 },
@@ -748,14 +755,14 @@ export async function POST(
 
             loanId,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("LOAN POST ERROR:", error);
 
         return NextResponse.json(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Loan create failed",
             },
             { status: 500 },
@@ -1023,7 +1030,7 @@ export async function PATCH(
 
             receiptId,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "LOAN PATCH ERROR:",
             error,
@@ -1033,7 +1040,7 @@ export async function PATCH(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Loan update failed",
             },
             { status: 500 },

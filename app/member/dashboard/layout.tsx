@@ -1,45 +1,21 @@
-"use client";
-// বাংলা: এই route/component-এ app → member → dashboard → layout অংশের page layout ও UI পরিচালিত হয়।
+import { redirect } from "next/navigation";
+import { getAuthUser } from "@/lib/auth";
+import MemberDashboardShell from "./MemberDashboardShell";
 
-import { useState } from "react";
-
-import Header from "@/app/components/dashboard/Header";
-import Sidebar from "@/app/components/dashboard/Sidebar";
-import DashboardFooter from "@/app/components/dashboard/DashboardFooter";
-
-// বাংলা: এই layout সব member dashboard পেজে shared sidebar, header, main content ও footer যোগ করে।
-export default function MemberDashboardLayout({
+export default async function MemberDashboardLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const [mobileOpen, setMobileOpen] = useState(false);
+    const user = await getAuthUser();
 
-    return (
-        <div className="app-background neon-ui dashboard-shell min-h-screen">
+    if (!user) {
+        redirect("/member/login");
+    }
 
-            <Sidebar
-                role="member"
-                mobileOpen={mobileOpen}
-                onClose={() => setMobileOpen(false)}
-            />
+    if (user.role !== "member") {
+        redirect("/admin/dashboard");
+    }
 
-            <div id="main-content" tabIndex={-1} className="flex min-h-screen flex-col transition-[padding] duration-300 lg:pl-20">
-
-                <Header
-                    title="Member Dashboard"
-                    role="member"
-                    onMenuClick={() =>
-                        setMobileOpen(true)
-                    }
-                />
-
-                <main className="min-h-[calc(100vh-64px)] flex-1">
-                    {children}
-                </main>
-
-                <DashboardFooter />
-            </div>
-        </div>
-    );
+    return <MemberDashboardShell>{children}</MemberDashboardShell>;
 }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { connectDB } from "@/lib/mongodb";
 import { Member } from "@/lib/sheetsModels";
+import type { SheetRecord } from "@/lib/sheet-record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export async function GET() {
             .sort({ createdAt: -1 })
             .lean();
 
-        const members = records.flatMap((record: any) => {
+        const members = records.flatMap((record: SheetRecord) => {
             const data = { ...(record.data || {}), ...record };
             const name = String(data["নাম"] || data.name || data.Name || "").trim();
             const id = String(

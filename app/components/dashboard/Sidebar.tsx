@@ -9,12 +9,15 @@ import {
     Users,
     ArrowDownToLine,
     ArrowUpFromLine,
+    Wallet,
     HandCoins,
     ReceiptText,
     UserCircle,
     Settings,
+    Bell,
     X,
     Globe,
+    Activity,
 } from "lucide-react";
 
 import { useTheme } from "@/context/ThemeContext";
@@ -75,6 +78,11 @@ export default function Sidebar({
             href: "/admin/dashboard/settings",
             icon: Settings,
         },
+        {
+            name: "Website Traffic",
+            href: "/admin/dashboard/traffic",
+            icon: Activity,
+        },
     ];
 
     const memberItems = [
@@ -107,6 +115,21 @@ export default function Sidebar({
             name: "Transactions",
             href: "/member/dashboard/transactions",
             icon: ReceiptText,
+        },
+        {
+            name: "Savings",
+            href: "/member/dashboard/savings",
+            icon: Wallet,
+        },
+        {
+            name: "Settings",
+            href: "/member/dashboard/settings",
+            icon: Settings,
+        },
+        {
+            name: "Notices",
+            href: "/member/dashboard/notices",
+            icon: Bell,
         },
     ];
 

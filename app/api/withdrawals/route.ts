@@ -10,6 +10,7 @@ import {
 } from "@/lib/sheetsModels";
 import Transaction from "@/models/Transaction";
 import User from "@/models/user";
+import type { SheetData, SheetRecord } from "@/lib/sheet-record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,14 +19,14 @@ export const dynamic = "force-dynamic";
    Helpers
 ========================================================= */
 
-function getData(doc: any) {
+function getData(doc: SheetRecord): SheetRecord {
     return {
         ...(doc?.data || {}),
         ...doc,
     };
 }
 
-function getValue(data: any, ...keys: string[]) {
+function getValue(data: SheetData, ...keys: string[]) {
     for (const key of keys) {
         if (
             data?.[key] !== undefined &&
@@ -39,7 +40,7 @@ function getValue(data: any, ...keys: string[]) {
     return "";
 }
 
-function toNumber(value: any) {
+function toNumber(value: unknown) {
     if (
         value === null ||
         value === undefined ||
@@ -65,7 +66,7 @@ function toNumber(value: any) {
         : 0;
 }
 
-function normalizeStatus(value: any) {
+function normalizeStatus(value: unknown) {
     const status = String(value || "")
         .trim()
         .toLowerCase();
@@ -91,11 +92,11 @@ function normalizeStatus(value: any) {
     return "pending";
 }
 
-function formatDate(value: any) {
+function formatDate(value: unknown) {
     if (!value) return "";
 
     try {
-        const date = new Date(value);
+        const date = new Date(String(value));
 
         if (
             Number.isNaN(
@@ -111,7 +112,7 @@ function formatDate(value: any) {
     }
 }
 
-function transformWithdrawal(doc: any) {
+function transformWithdrawal(doc: SheetRecord) {
     const data = getData(doc);
 
     const withdrawalId =
@@ -392,7 +393,7 @@ async function generateWithdrawalId() {
     let max = 0;
 
     for (
-        const doc of docs as any[]
+        const doc of docs as SheetRecord[]
     ) {
         const data =
             doc.data || {};
@@ -484,7 +485,14 @@ export async function GET(
             .sort({ createdAt: -1 })
             .lean();
 
-        const transactionWithdrawals = memberRequests.map((item: any) => {
+        const transactionWithdrawals = memberRequests.map((item: SheetRecord & {
+            member?: {
+                memberId?: string;
+                _id?: unknown;
+                name?: string;
+                phone?: string;
+            } | null;
+        }) => {
             const member = item.member || {};
             return {
                 id: String(item._id),
@@ -637,7 +645,7 @@ export async function GET(
 
             summary,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "GET /api/withdrawals:",
             error
@@ -648,7 +656,7 @@ export async function GET(
                 success: false,
 
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Withdrawal data load failed",
             },
             {
@@ -909,7 +917,7 @@ export async function POST(
                 status: 201,
             }
         );
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "POST /api/withdrawals:",
             error
@@ -920,7 +928,7 @@ export async function POST(
                 success: false,
 
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Withdrawal create failed",
             },
             {
@@ -1250,7 +1258,7 @@ export async function PATCH(
                 let balance = 0;
 
                 for (
-                    const item of cashBookDocs as any[]
+                    const item of cashBookDocs as SheetRecord[]
                 ) {
                     const data =
                         item.data ||
@@ -1473,7 +1481,7 @@ export async function PATCH(
                 status: 400,
             }
         );
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "PATCH /api/withdrawals:",
             error
@@ -1484,7 +1492,7 @@ export async function PATCH(
                 success: false,
 
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "Withdrawal update failed",
             },
             {

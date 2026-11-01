@@ -1,11 +1,21 @@
 // বাংলা: এই API route-এ admin → members সংক্রান্ত request যাচাই, data access এবং JSON response পরিচালিত হয়।
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 
 import { connectDB } from "@/lib/mongodb";
 import { requireRole } from "@/lib/require-auth";
-import { Member } from "@/lib/sheetsModels";
+import {
+    CashBook,
+    Member,
+    MemberRequest,
+    Payment,
+} from "@/lib/sheetsModels";
+import Deposit from "@/models/Deposit";
+import MemberArchive from "@/models/MemberArchive";
+import Transaction from "@/models/Transaction";
 import User from "@/models/user";
+import type { SheetRecord } from "@/lib/sheet-record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +24,7 @@ export const dynamic = "force-dynamic";
    HELPERS
 ========================= */
 
-function getMemberData(doc: any) {
+function getMemberData(doc: SheetRecord): SheetRecord {
     const root = doc?.toObject
         ? doc.toObject()
         : { ...doc };
@@ -25,7 +35,7 @@ function getMemberData(doc: any) {
     };
 }
 
-function cleanMember(member: any) {
+function cleanMember(member: SheetRecord) {
     const data = getMemberData(member);
 
     // Password কখনো frontend-এ পাঠাবো না
@@ -166,7 +176,7 @@ async function generateMemberId() {
 
     let max = 0;
 
-    for (const doc of docs as any[]) {
+    for (const doc of docs as SheetRecord[]) {
         const raw =
             doc.MemberID ||
             doc.data?.MemberID ||
@@ -177,6 +187,21 @@ async function generateMemberId() {
             String(raw).replace(/^M/i, "")
         );
 
+        if (Number.isFinite(number)) {
+            max = Math.max(max, number);
+        }
+    }
+
+    const archivedMembers = await MemberArchive.find({
+        expiresAt: { $gt: new Date() },
+    })
+        .select("memberId")
+        .lean();
+
+    for (const archive of archivedMembers) {
+        const number = Number(
+            String(archive.memberId).replace(/^M/i, "")
+        );
         if (Number.isFinite(number)) {
             max = Math.max(max, number);
         }
@@ -206,19 +231,66 @@ export async function GET() {
             .sort({ createdAt: -1 })
             .lean();
 
+        const cleanedMembers = members.map(cleanMember);
+        const accounts = await User.find({
+            role: "member",
+            memberId: {
+                $in: cleanedMembers.map((member) =>
+                    String(member.memberId)
+                ),
+            },
+        })
+            .select("name email memberId phone whatsapp address photoUrl preferredLanguage notificationPreferences")
+            .lean();
+        const accountsByMemberId = new Map(
+            accounts.map((account) => [
+                String(account.memberId),
+                account,
+            ])
+        );
+
         return NextResponse.json({
             success: true,
-            members: members.map(cleanMember),
+            members: cleanedMembers.map((member) => {
+                const account = accountsByMemberId.get(
+                    String(member.memberId)
+                );
+                const accountEmail =
+                    account?.email &&
+                    !account.email.endsWith("@member.local")
+                        ? account.email
+                        : "";
+
+                return {
+                    ...member,
+                    name: account?.name || member.name,
+                    email: accountEmail || member.email,
+                    whatsapp:
+                        account?.whatsapp ||
+                        account?.phone ||
+                        member.whatsapp,
+                    address: account?.address || member.address,
+                    photoUrl: account?.photoUrl || member.photoUrl,
+                    preferredLanguage:
+                        account?.preferredLanguage || "bn",
+                    notificationPreferences:
+                        account?.notificationPreferences || {
+                            emailUpdates: true,
+                            transactionUpdates: true,
+                            announcements: true,
+                        },
+                };
+            }),
         });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("GET MEMBERS ERROR:", error);
 
         return NextResponse.json(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "সদস্যদের তথ্য পাওয়া যায়নি",
             },
             { status: 500 }
@@ -278,7 +350,12 @@ export async function POST(
             email: loginEmail,
         });
 
-        if (existingEmail) {
+        const archivedEmail = await MemberArchive.exists({
+            expiresAt: { $gt: new Date() },
+            "snapshot.account.email": loginEmail,
+        });
+
+        if (existingEmail || archivedEmail) {
             return NextResponse.json(
                 {
                     success: false,
@@ -391,6 +468,19 @@ export async function POST(
                 body.mobile ||
                 "",
 
+            whatsapp: body.whatsapp || "",
+            address: body.address || "",
+            preferredLanguage:
+                body.preferredLanguage === "en" ? "en" : "bn",
+            notificationPreferences: {
+                emailUpdates:
+                    body.notificationPreferences?.emailUpdates !== false,
+                transactionUpdates:
+                    body.notificationPreferences?.transactionUpdates !== false,
+                announcements:
+                    body.notificationPreferences?.announcements !== false,
+            },
+
             isActive:
                 body.status === "Active" &&
                 body.loginStatus !== "Blocked" &&
@@ -403,7 +493,7 @@ export async function POST(
             memberId,
         });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "CREATE MEMBER ERROR:",
             error
@@ -413,7 +503,7 @@ export async function POST(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "সদস্য যোগ করা যায়নি",
             },
             { status: 500 }
@@ -456,7 +546,14 @@ export async function PUT(
 
         const member = await Member.findOne({
             sourceSheet: "Members",
-            recordId: memberId,
+            $or: [
+                { recordId: memberId },
+                { MemberID: memberId },
+                { memberId },
+                { "data.MemberID": memberId },
+                { "data.Member ID": memberId },
+                { "data.memberId": memberId },
+            ],
         });
 
         if (!member) {
@@ -470,6 +567,40 @@ export async function PUT(
         }
 
         const oldData = getMemberData(member);
+        const user = await User.findOne({
+            role: "member",
+            memberId,
+        }).select("+password");
+        const email = String(
+            body.email ?? oldData["Gmail"] ?? ""
+        )
+            .trim()
+            .toLowerCase();
+        const loginEmail =
+            email || `${memberId.toLowerCase()}@member.local`;
+        const emailOwner = await User.findOne({
+            role: "member",
+            email: loginEmail,
+        }).select("_id");
+        const archivedEmailOwner = await MemberArchive.exists({
+            memberId: { $ne: memberId },
+            expiresAt: { $gt: new Date() },
+            "snapshot.account.email": loginEmail,
+        });
+
+        if (
+            archivedEmailOwner ||
+            emailOwner &&
+            String(emailOwner._id) !== String(user?._id || "")
+        ) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "এই email অন্য সদস্য ব্যবহার করছেন",
+                },
+                { status: 409 }
+            );
+        }
 
         const newData = {
             ...oldData,
@@ -595,7 +726,7 @@ export async function PUT(
         for (const [key, value] of Object.entries(
             newData
         )) {
-            (member as any)[key] = value;
+            member.set(key, value);
         }
 
         await member.save();
@@ -603,24 +734,6 @@ export async function PUT(
         /* =========================
            UPDATE LOGIN
         ========================= */
-
-        const user =
-            await User.findOne({
-                memberId,
-            }).select("+password");
-
-        const email =
-            String(
-                body.email ??
-                oldData["Gmail"] ??
-                ""
-            )
-                .trim()
-                .toLowerCase();
-
-        const loginEmail =
-            email ||
-            `${memberId.toLowerCase()}@member.local`;
 
         if (user) {
             user.name =
@@ -635,6 +748,46 @@ export async function PUT(
                 body.mobile ??
                 user.phone ??
                 "";
+
+            user.whatsapp =
+                body.whatsapp ??
+                user.whatsapp ??
+                "";
+
+            user.address =
+                body.address ??
+                user.address ??
+                "";
+
+            if (
+                body.preferredLanguage === "bn" ||
+                body.preferredLanguage === "en"
+            ) {
+                user.preferredLanguage =
+                    body.preferredLanguage;
+            }
+
+            if (
+                body.notificationPreferences &&
+                typeof body.notificationPreferences === "object"
+            ) {
+                const preferences =
+                    body.notificationPreferences;
+                user.notificationPreferences = {
+                    emailUpdates:
+                        typeof preferences.emailUpdates === "boolean"
+                            ? preferences.emailUpdates
+                            : user.notificationPreferences?.emailUpdates ?? true,
+                    transactionUpdates:
+                        typeof preferences.transactionUpdates === "boolean"
+                            ? preferences.transactionUpdates
+                            : user.notificationPreferences?.transactionUpdates ?? true,
+                    announcements:
+                        typeof preferences.announcements === "boolean"
+                            ? preferences.announcements
+                            : user.notificationPreferences?.announcements ?? true,
+                };
+            }
 
             user.isActive =
                 (body.status ??
@@ -689,6 +842,19 @@ export async function PUT(
                     body.mobile ||
                     "",
 
+                whatsapp: body.whatsapp || "",
+                address: body.address || "",
+                preferredLanguage:
+                    body.preferredLanguage === "en" ? "en" : "bn",
+                notificationPreferences: {
+                    emailUpdates:
+                        body.notificationPreferences?.emailUpdates !== false,
+                    transactionUpdates:
+                        body.notificationPreferences?.transactionUpdates !== false,
+                    announcements:
+                        body.notificationPreferences?.announcements !== false,
+                },
+
                 isActive:
                     (body.status ||
                         oldData["Status"] ||
@@ -703,7 +869,7 @@ export async function PUT(
             memberId,
         });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(
             "UPDATE MEMBER ERROR:",
             error
@@ -713,8 +879,223 @@ export async function PUT(
             {
                 success: false,
                 message:
-                    error?.message ||
+                    (error instanceof Error ? error.message : "") ||
                     "সদস্য আপডেট করা যায়নি",
+            },
+            { status: 500 }
+        );
+    }
+}
+
+/* =========================
+   ARCHIVE MEMBER
+========================= */
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const auth = await requireRole(["admin"]);
+
+        if (auth.response) {
+            return auth.response;
+        }
+
+        const body = await request.json();
+        const memberId = String(body.memberId || "").trim();
+        const confirmMemberId = String(
+            body.confirmMemberId || ""
+        ).trim();
+
+        if (!memberId || confirmMemberId !== memberId) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "সদস্যের Member ID নিশ্চিত করুন",
+                },
+                { status: 400 }
+            );
+        }
+
+        await connectDB();
+
+        await MemberArchive.createIndexes();
+        const session = await mongoose.startSession();
+        let archived = false;
+
+        try {
+            await session.withTransaction(async () => {
+                const member = await Member.findOne({
+                    sourceSheet: "Members",
+                    $or: [
+                        { recordId: memberId },
+                        { MemberID: memberId },
+                        { "Member ID": memberId },
+                        { memberId },
+                        { "data.MemberID": memberId },
+                        { "data.Member ID": memberId },
+                        { "data.memberId": memberId },
+                    ],
+                }).session(session);
+
+                const account = await User.findOne({
+                    role: "member",
+                    memberId,
+                })
+                    .select("_id")
+                    .session(session);
+
+                if (!member && !account) {
+                    return;
+                }
+
+                const linkedSheetRecord = {
+                    $or: [
+                        { MemberID: memberId },
+                        { "Member ID": memberId },
+                        { memberId },
+                        { "data.MemberID": memberId },
+                        { "data.Member ID": memberId },
+                        { "data.memberId": memberId },
+                    ],
+                };
+
+                const transactions = account
+                    ? await Transaction.find({
+                          member: account._id,
+                      })
+                          .session(session)
+                          .lean()
+                    : [];
+                const deposits = await Deposit.find({ memberId })
+                    .session(session)
+                    .lean();
+                const payments = await Payment.find(linkedSheetRecord)
+                    .session(session)
+                    .lean();
+                const cashBooks = await CashBook.find(linkedSheetRecord)
+                    .session(session)
+                    .lean();
+                const memberRequests = await MemberRequest.find({
+                    sourceSheet: "Member Requests",
+                    approvedMemberId: memberId,
+                })
+                    .session(session)
+                    .lean();
+                const fullAccount = account
+                    ? await User.findById(account._id)
+                          .select("+password")
+                          .session(session)
+                          .lean()
+                    : null;
+
+                const archivedAt = new Date();
+                const expiresAt = new Date(archivedAt);
+                expiresAt.setDate(expiresAt.getDate() + 30);
+
+                await MemberArchive.create(
+                    [
+                        {
+                            memberId,
+                            name:
+                                String(
+                                    fullAccount?.name ||
+                                        member?.name ||
+                                        member?.["নাম"] ||
+                                        member?.data?.["নাম"] ||
+                                        "Member"
+                                ),
+                            archivedAt,
+                            expiresAt,
+                            snapshot: {
+                                member: member
+                                    ? member.toObject()
+                                    : null,
+                                account: fullAccount,
+                                transactions,
+                                deposits,
+                                payments,
+                                cashBooks,
+                                memberRequests,
+                            },
+                        },
+                    ],
+                    { session }
+                );
+
+                if (account) {
+                    await Transaction.deleteMany(
+                        { member: account._id },
+                        { session }
+                    );
+                }
+
+                await Deposit.deleteMany(
+                    { memberId },
+                    { session }
+                );
+                await Payment.deleteMany(
+                    linkedSheetRecord,
+                    { session }
+                );
+                await CashBook.deleteMany(
+                    linkedSheetRecord,
+                    { session }
+                );
+                await MemberRequest.deleteMany(
+                    {
+                        sourceSheet: "Member Requests",
+                        approvedMemberId: memberId,
+                    },
+                    { session }
+                );
+
+                if (member) {
+                    await Member.deleteOne(
+                        { _id: member._id },
+                        { session }
+                    );
+                }
+
+                if (account) {
+                    await User.deleteOne(
+                        {
+                            _id: account._id,
+                            role: "member",
+                        },
+                        { session }
+                    );
+                }
+
+                archived = true;
+            });
+        } finally {
+            await session.endSession();
+        }
+
+        if (!archived) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "সদস্য পাওয়া যায়নি",
+                },
+                { status: 404 }
+            );
+        }
+
+        return NextResponse.json({
+            success: true,
+            message:
+                "সদস্যের সব তথ্য ও linked records ৩০ দিনের জন্য archive করা হয়েছে",
+            memberId,
+        });
+    } catch (error) {
+        console.error("ARCHIVE MEMBER ERROR:", error);
+
+        return NextResponse.json(
+            {
+                success: false,
+                message:
+                    (error instanceof Error ? error.message : "") ||
+                    "সদস্য archive করা যায়নি",
             },
             { status: 500 }
         );

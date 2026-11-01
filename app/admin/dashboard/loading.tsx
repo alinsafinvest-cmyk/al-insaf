@@ -1,0 +1,5 @@
+import RouteLoading from "@/app/components/dashboard/RouteLoading";
+
+export default function Loading() {
+    return <RouteLoading label="অ্যাডমিন ড্যাশবোর্ড লোড হচ্ছে" dashboard />;
+}
